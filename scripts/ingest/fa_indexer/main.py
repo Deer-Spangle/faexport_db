@@ -1,6 +1,7 @@
 import glob
 import json
 import datetime
+from pathlib import Path
 from typing import Dict
 
 import psycopg2
@@ -65,7 +66,8 @@ def setup_initial_data(db: Database) -> None:
 
 
 if __name__ == "__main__":
-    with open("config.json", "r") as f:
+    config_path = Path(__file__).parent / "config.json"
+    with open(config_path, "r") as f:
         config = json.load(f)
     db_conn = psycopg2.connect(config["db_conn"])
     db_obj = Database(db_conn)
