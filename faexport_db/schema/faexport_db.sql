@@ -88,6 +88,7 @@ create table files
             references submissions,
     site_file_id     text,
     -- Scraper information
+    is_current    bool not null,
     first_scanned timestamp with time zone not null,
     latest_update timestamp with time zone not null,
     -- Type specific data
@@ -98,7 +99,7 @@ create table files
 );
 
 create unique index files_submission_id_site_file_id_uindex
-    on files (submission_id, site_file_id);
+    on files (submission_id, site_file_id) where is_current;
 
 create table hash_algos
 (

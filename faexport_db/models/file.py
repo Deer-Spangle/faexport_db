@@ -13,6 +13,7 @@ class File:
             file_id: int,
             submission_id: int,
             site_file_id: Optional[str],
+            is_current: bool,
             first_scanned: datetime.datetime,
             latest_update: datetime.datetime,
             file_url: Optional[str],
@@ -23,6 +24,7 @@ class File:
         self.file_id = file_id
         self.submission_id = submission_id
         self.site_file_id = site_file_id
+        self.is_current = is_current
         self.first_scanned = first_scanned
         self.latest_update = latest_update
         self.file_url = file_url
@@ -56,9 +58,9 @@ class FileUpdate:
         extra_data = unset_to_null(self.add_extra_data)
         file_rows = db.insert(
             "INSERT INTO files "
-            "(submission_id, site_file_id, first_scanned, latest_update, file_url, file_size, extra_data) "
+            "(submission_id, site_file_id, is_current, first_scanned, latest_update, file_url, file_size, extra_data) "
             "VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING file_id",
-            (submission_id, site_file_id, self.update_time, self.update_time, file_url, file_size, extra_data)
+            (submission_id, site_file_id, True, self.update_time, self.update_time, file_url, file_size, extra_data)
         )
         file_id = file_rows[0][0]
         hashes = None
@@ -68,6 +70,7 @@ class FileUpdate:
             file_id,
             submission_id,
             site_file_id,
+            True,
             self.update_time,
             self.update_time,
             file_url,
@@ -94,7 +97,7 @@ class FileList:
     @classmethod
     def from_database(cls, db: Database, sub_id: int) -> Optional[FileList]:
         file_rows = db.select(
-            "SELECT file_id, site_file_id, first_scanned, latest_update, file_url, file_size, extra_data "
+            "SELECT file_id, site_file_id, is_current, first_scanned, latest_update, file_url, file_size, extra_data "
             "FROM files WHERE submission_id = %s",
             (sub_id,)
         )
@@ -102,12 +105,12 @@ class FileList:
             return None
         files = []
         for file_row in file_rows:
-            file_id, site_file_id, first_scanned, latest_update, file_url, file_size, extra_data = file_row
+            file_id, site_file_id, is_current, first_scanned, latest_update, file_url, file_size, extra_data = file_row
             hashes = FileHashList.from_database(db, file_id)
             files.append(File(
                 file_id,
                 sub_id,
-                site_file_id, first_scanned, latest_update, file_url, file_size, extra_data, hashes
+                site_file_id, first_scanned, is_current, latest_update, file_url, file_size, extra_data, hashes
             ))
         return FileList(sub_id, files)
 
