@@ -1,16 +1,18 @@
 import datetime
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, TYPE_CHECKING
 
-from scripts.ingest.fa_indexer.models.db import (
+from faexport_db.db import (
     merge_dicts,
     Database,
     json_to_db,
     unset_to_null,
     UNSET,
 )
-from scripts.ingest.fa_indexer.models.file import File, FileUpdate
-from scripts.ingest.fa_indexer.models.keyword import SubmissionKeywordsListUpdate, SubmissionKeywordsList
-from scripts.ingest.fa_indexer.models.user import User, UserUpdate
+from faexport_db.models.keyword import SubmissionKeywordsListUpdate, SubmissionKeywordsList
+
+if TYPE_CHECKING:
+    from faexport_db.models.file import FileUpdate
+    from faexport_db.models.user import User, UserUpdate
 
 
 class Submission:
@@ -114,7 +116,8 @@ class Submission:
                     self.submission_id,
                 ),
             )
-            if self.keywords
+            if self.keywords:
+                pass
             # TODO: update keywords
 
     @classmethod

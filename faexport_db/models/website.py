@@ -1,6 +1,7 @@
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
-from faexport_db.db import Database
+if TYPE_CHECKING:
+    from faexport_db.db import Database
 
 
 class Website:

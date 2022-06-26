@@ -64,17 +64,24 @@ class Database:
             uploader_id: int,
             keywords: List[str]
     ) -> int:
-        if sub_row := self.select("SELECT submission_id, latest_update, extra_data FROM submissions "
-                                  "WHERE website_id = %s AND site_submission_id = %s", (SITE_ID, str(submission_id))):
+        if sub_row := self.select(
+                "SELECT submission_id, latest_update, extra_data FROM submissions "
+                "WHERE website_id = %s AND site_submission_id = %s",
+                (SITE_ID, str(submission_id))
+        ):
             sub_id, latest_update, extra_data = sub_row[0]
             extra_data["rating"] = rating
             if latest_update < DATA_DATE:
-                self.update("UPDATE submissions "
-                            "SET is_deleted = %s AND latest_update = %s AND uploader_id = %s AND title = %s "
-                            "AND description = %s AND datetime_posted = %s AND extra_data = %s "
-                            "WHERE submission_id = %s", (
-                            False, DATA_DATE, uploader_id, title, description, upload_datetime, json_to_db(extra_data),
-                            sub_id))
+                self.update(
+                    "UPDATE submissions "
+                    "SET is_deleted = %s AND latest_update = %s AND uploader_id = %s AND title = %s "
+                    "AND description = %s AND datetime_posted = %s AND extra_data = %s "
+                    "WHERE submission_id = %s",
+                    (
+                        False, DATA_DATE, uploader_id, title, description, upload_datetime, json_to_db(extra_data),
+                        sub_id
+                    )
+                )
                 self.update_keywords(sub_id, keywords)
             return sub_id
         result = self.insert(

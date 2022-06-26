@@ -1,7 +1,6 @@
-import datetime
-from typing import Optional, Dict, Any, List, Set, Sequence, Iterable
+from typing import Optional, Dict, List, Set, Iterable
 
-from scripts.ingest.fa_indexer.models.db import merge_dicts, Database, json_to_db, UNSET, unset_to_null
+from faexport_db.db import Database, UNSET, unset_to_null
 
 
 class SubmissionKeyword:
@@ -79,7 +78,7 @@ class SubmissionKeywordsList:
     def save(self, db: "Database") -> None:
         db_list = self.from_database(db, self.submission_id)
         # TODO, I reckon
-        keyword_rows = self.select(
+        keyword_rows = db.select(
             "SELECT keyword_id, keyword, ordinal FROM submission_keywords WHERE submission_id = %s", (sub_id,))
         db_keywords = [row[1] for row in sorted(keyword_rows, key=lambda r: r[2])]
         if keywords == db_keywords:

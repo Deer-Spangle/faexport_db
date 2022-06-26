@@ -7,11 +7,10 @@ import psycopg2
 import dateutil.parser
 import tqdm
 
-from scripts.ingest.fa_indexer.models.db import Database
-from scripts.ingest.fa_indexer.models.file import FileUpdate, FileHashUpdate
-from scripts.ingest.fa_indexer.models.submission import SubmissionUpdate
-from scripts.ingest.fa_indexer.models.user import UserUpdate
-
+from faexport_db.db import Database
+from faexport_db.models.file import FileUpdate, FileHashUpdate
+from faexport_db.models.submission import SubmissionUpdate
+from faexport_db.models.user import UserUpdate
 from faexport_db.models.website import Website
 
 DATA_DIR = "./fa-indexer/"

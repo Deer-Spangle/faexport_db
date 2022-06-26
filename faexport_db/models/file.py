@@ -1,7 +1,9 @@
-import datetime
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, TYPE_CHECKING
 
-from scripts.ingest.fa_indexer.models.db import UNSET
+from faexport_db.db import UNSET
+
+if TYPE_CHECKING:
+    import datetime
 
 
 class File:
