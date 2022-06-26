@@ -118,7 +118,7 @@ insert into hash_algos (algo_id, language, algorithm_name) VALUES ('rust:dhash',
 
 create table file_hashes
 (
-    hash_id    int not null
+    hash_id    serial
         constraint file_hashes_pk
             primary key,
     file_id    int not null
