@@ -12,7 +12,7 @@ from faexport_db.db import (
 from faexport_db.models.keyword import SubmissionKeywordsListUpdate, SubmissionKeywordsList
 
 if TYPE_CHECKING:
-    from faexport_db.models.file import FileUpdate
+    from faexport_db.models.file import FileUpdate, FileList
     from faexport_db.models.user import User, UserUpdate
 
 
@@ -30,7 +30,8 @@ class Submission:
         description: Optional[str],
         datetime_posted: Optional[datetime.datetime],
         extra_data: Optional[Dict[str, Any]],
-        keywords: Optional[SubmissionKeywordsList]
+        keywords: Optional[SubmissionKeywordsList],
+        files: Optional[FileList],
     ):
         self.submission_id = submission_id
         self.website_id = website_id
@@ -46,6 +47,8 @@ class Submission:
         self.extra_data = extra_data
         self.keywords = keywords  # TODO
         self.keywords_update = UNSET  # TODO
+        self.files = files  # TODO
+        self.files_update = UNSET  # TODO
         self.updated = False
 
     def add_update(self, update: "SubmissionUpdate") -> None:
@@ -146,6 +149,7 @@ class Submission:
             extra_data,
         ) = sub_rows[0]
         keywords = SubmissionKeywordsList.from_database(db, sub_id)
+        files = FileList.from_database(db, sub_id)
         return cls(
             sub_id,
             website_id,
@@ -158,7 +162,8 @@ class Submission:
             description,
             datetime_posted,
             extra_data,
-            keywords
+            keywords,
+            files
         )
 
 
@@ -252,6 +257,7 @@ class SubmissionUpdate:
         )
 
     def save(self, db: "Database") -> Submission:
+        # TODO: Check all this supports keywords and files
         submission = Submission.from_database(
             db, self.website_id, self.site_submission_id
         )
