@@ -1,7 +1,7 @@
 import datetime
 from typing import Optional, Dict, Any
 
-from scripts.ingest.fa_indexer.models.db import merge_dicts, Database, json_to_db, UNSET, unset_to_null
+from faexport_db.db import merge_dicts, Database, json_to_db, UNSET, unset_to_null
 
 
 class User:

@@ -2,9 +2,11 @@ import datetime
 import json
 from typing import Tuple, List, Any, Optional, Dict, Union
 
-from scripts.ingest.fa_indexer.main import SITE_ID, DATA_DATE
-
 UNSET = object()
+
+# TODO: remove these
+SITE_ID = "fa"
+DATA_DATE = datetime.datetime(2019, 12, 4, 0, 0, 0, tzinfo=datetime.timezone.utc)
 
 
 def merge_dicts(base: Optional[Dict[str, Any]], overlay: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
