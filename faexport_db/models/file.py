@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Optional, Dict, Any, List, TYPE_CHECKING
 
-from faexport_db.db import UNSET, Database
+from faexport_db.db import UNSET, Database, unset_to_null
 
 if TYPE_CHECKING:
     import datetime
@@ -36,14 +36,45 @@ class FileUpdate:
             self,
             file_url: str = UNSET,
             *,
+            update_time: datetime.datetime = None,
+            site_file_id: str = UNSET,
             file_size: str = UNSET,
             add_extra_data: Dict[str, Any] = UNSET,
-            add_hashes: List["FileHashUpdate"] = UNSET,
+            add_hashes: FileHashListUpdate = UNSET,
     ):
         self.file_url = file_url
+        self.update_time = update_time or datetime.datetime.now(datetime.timezone.utc)
+        self.site_file_id = site_file_id
         self.file_size = file_size
         self.add_extra_data = add_extra_data
         self.add_hashes = add_hashes
+
+    def create(self, db: Database, submission_id: int) -> File:
+        site_file_id = unset_to_null(self.site_file_id)
+        file_url = unset_to_null(self.file_url)
+        file_size = unset_to_null(self.file_size)
+        extra_data = unset_to_null(self.add_extra_data)
+        file_rows = db.insert(
+            "INSERT INTO files "
+            "(submission_id, site_file_id, first_scanned, latest_update, file_url, file_size, extra_data) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING file_id",
+            (submission_id, site_file_id, self.update_time, self.update_time, file_url, file_size, extra_data)
+        )
+        file_id = file_rows[0][0]
+        hashes = None
+        if self.add_hashes is not UNSET:
+            hashes = self.add_hashes.create(db, file_id)
+        return File(
+            file_id,
+            submission_id,
+            site_file_id,
+            self.update_time,
+            self.update_time,
+            file_url,
+            file_size,
+            extra_data,
+            hashes
+        )
 
 
 class FileList:
@@ -92,7 +123,10 @@ class FileListUpdate:
         self.file_updates = file_updates
 
     def create(self, db: Database, submission_id: int) -> Optional[FileList]:
-        pass  # TODO
+        file_list = []
+        for file_update in self.file_updates:
+            file_list.append(file_update.create(db, submission_id))
+        return FileList(submission_id, file_list)
 
 
 class FileHash:
@@ -118,6 +152,19 @@ class FileHashUpdate:
         self.algo_id = algo_id
         self.hash_value = hash_value
 
+    def create(self, db: Database, file_id: int) -> FileHash:
+        hash_rows = db.insert(
+            "INSERT INTO file_hashes (file_id, algo_id, hash_value) VALUES (%s, %s, %s)",
+            (file_id, self.algo_id, self.hash_value)
+        )
+        hash_id = hash_rows[0][0]
+        return FileHash(
+            hash_id,
+            file_id,
+            self.algo_id,
+            self.hash_value
+        )
+
 
 class FileHashList:
     def __init__(
@@ -137,4 +184,18 @@ class FileHashList:
         return FileHashList(
             file_id,
             [FileHash(hash_id, file_id, algo_id, hash_value) for hash_id, algo_id, hash_value in hash_rows]
+        )
+
+
+class FileHashListUpdate:
+    def __init__(
+            self,
+            hashes: List[FileHashUpdate]
+    ) -> None:
+        self.hashes = hashes
+
+    def create(self, db: Database, file_id: int) -> FileHashList:
+        return FileHashList(
+            file_id,
+            [update.create(db, file_id) for update in self.hashes]
         )

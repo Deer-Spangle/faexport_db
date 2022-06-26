@@ -9,7 +9,7 @@ import dateutil.parser
 import tqdm
 
 from faexport_db.db import Database
-from faexport_db.models.file import FileUpdate, FileHashUpdate, FileListUpdate
+from faexport_db.models.file import FileUpdate, FileHashUpdate, FileListUpdate, FileHashListUpdate
 from faexport_db.models.submission import SubmissionUpdate
 from faexport_db.models.user import UserUpdate
 from faexport_db.models.website import Website
@@ -37,7 +37,7 @@ def import_submission_data(db: Database, submission_data: Dict) -> None:
         ordered_keywords=submission_data["keywords"],
         files=FileListUpdate([FileUpdate(
             submission_data["filename"],
-            add_hashes=[FileHashUpdate("test", "abc123")]
+            add_hashes=FileHashListUpdate([FileHashUpdate("test", "abc123")])
         )])
     )
     submission = sub_update.save(db)
