@@ -1,0 +1,258 @@
+import datetime
+from typing import Optional, Dict, Any, List
+
+from scripts.ingest.fa_indexer.models.db import (
+    merge_dicts,
+    Database,
+    json_to_db,
+    unset_to_null,
+    UNSET,
+)
+from scripts.ingest.fa_indexer.models.file import File, FileUpdate
+from scripts.ingest.fa_indexer.models.keyword import SubmissionKeywordsListUpdate, SubmissionKeywordsList
+from scripts.ingest.fa_indexer.models.user import User, UserUpdate
+
+
+class Submission:
+    def __init__(
+        self,
+        submission_id: int,
+        website_id: str,
+        site_submission_id: str,
+        is_deleted: bool,
+        first_scanned: datetime.datetime,
+        latest_update: datetime.datetime,
+        uploader: Optional[User],
+        title: Optional[str],
+        description: Optional[str],
+        datetime_posted: Optional[datetime.datetime],
+        extra_data: Optional[Dict[str, Any]],
+        keywords: Optional[SubmissionKeywordsList]
+    ):
+        self.submission_id = submission_id
+        self.website_id = website_id
+        self.site_submission_id = site_submission_id
+        self.is_deleted = is_deleted
+        self.first_scanned = first_scanned
+        self.latest_update = latest_update
+        self.uploader = uploader  # TODO
+        self.uploader_update = UNSET
+        self.title = title
+        self.description = description
+        self.datetime_posted = datetime_posted
+        self.extra_data = extra_data
+        self.keywords = keywords  # TODO
+        self.keywords_update = UNSET  # TODO
+        self.updated = False
+
+    def add_update(self, update: "SubmissionUpdate") -> None:
+        # TODO
+        if update.update_time > self.latest_update:
+            self.updated = True  # At the very least, update time is being updated
+            self.latest_update = update.update_time
+            if update.is_deleted is not UNSET:
+                self.is_deleted = update.is_deleted
+            if update.uploader is not UNSET:
+                self.uploader = update.uploader
+            if update.uploader_update is not UNSET:
+                self.uploader_update = update.uploader_update
+            if update.title is not UNSET:
+                self.title = update.title
+            if update.description is not UNSET:
+                self.description = update.description
+            if update.datetime_posted is not UNSET:
+                self.datetime_posted = update.datetime_posted
+            if update.add_extra_data is not UNSET:
+                self.extra_data = merge_dicts(self.extra_data, update.add_extra_data)
+            if update.ordered_keywords is not UNSET:
+                self.keywords_update = SubmissionKeywordsListUpdate.from_ordered_keywords(update.ordered_keywords)
+            if update.unordered_keywords is not UNSET:
+                self.keywords_update = SubmissionKeywordsListUpdate.from_unordered_keywords(update.unordered_keywords)
+            return
+        # If it's an older update, we can still update some things
+        if self.uploader is None and update.uploader is not UNSET:
+            self.updated = self.updated or (self.uploader != update.uploader)
+            self.uploader = update.uploader
+        if self.title is None and update.title is not UNSET:
+            self.updated = self.updated or (self.title != update.title)
+            self.title = update.title
+        if self.description is None and update.description is not UNSET:
+            self.updated = self.updated or (self.description != update.description)
+            self.description = update.description
+        if self.datetime_posted is None and update.datetime_posted is not UNSET:
+            self.updated = self.updated or (
+                self.datetime_posted != update.datetime_posted
+            )
+            self.datetime_posted = update.datetime_posted
+        if update.add_extra_data is not UNSET:
+            new_extra_data = merge_dicts(update.add_extra_data, self.extra_data)
+            self.updated = self.updated or (self.extra_data != new_extra_data)
+            self.extra_data = new_extra_data
+        if self.keywords is None and update.ordered_keywords is not UNSET:
+            keywords_update = SubmissionKeywordsListUpdate.from_ordered_keywords(update.ordered_keywords)
+            self.updated = self.updated or (keywords_update is not None)
+            self.keywords_update = keywords_update
+        if self.first_scanned > update.update_time:
+            self.updated = True
+            self.first_scanned = update.update_time
+
+    def save(self, db: "Database") -> None:
+        if self.updated:
+            db.update(
+                "UPDATE submissions "
+                "SET is_deleted = %s AND first_scanned = %s AND latest_update = %s AND uploader_id = %s "
+                "AND title = %s AND description = %s AND datetime_posted = %s AND extra_data = %s "
+                "WHERE submission_id = %s",
+                (
+                    self.is_deleted,
+                    self.first_scanned,
+                    self.latest_update,
+                    self.title,
+                    self.description,
+                    self.datetime_posted,
+                    json_to_db(self.extra_data),
+                    self.submission_id,
+                ),
+            )
+            if self.keywords
+            # TODO: update keywords
+
+    @classmethod
+    def from_database(
+        cls, db: "Database", website_id: str, site_submission_id: str
+    ) -> Optional["Submission"]:
+        sub_rows = db.select(
+            "SELECT submission_id, is_deleted, first_scanned, latest_update, uploader_id, title, description, "
+            "datetime_posted, extra_data "
+            "FROM submissions "
+            "WHERE website_id = %s AND site_submission_id = %s",
+            (website_id, site_submission_id),
+        )
+        if not sub_rows:
+            return None
+        (
+            sub_id,
+            is_deleted,
+            first_scanned,
+            latest_update,
+            uploader_id,
+            title,
+            description,
+            datetime_posted,
+            extra_data,
+        ) = sub_rows[0]
+        keywords = SubmissionKeywordsList.from_database(db, sub_id)
+        return cls(
+            sub_id,
+            website_id,
+            site_submission_id,
+            is_deleted,
+            first_scanned,
+            latest_update,
+            uploader_id,
+            title,
+            description,
+            datetime_posted,
+            extra_data,
+            keywords
+        )
+
+
+class SubmissionUpdate:
+    def __init__(
+        self,
+        website_id: str,
+        site_submission_id: str,
+        update_time: datetime.datetime = None,
+        is_deleted: bool = False,
+        *,
+        uploader: User = UNSET,
+        uploader_update: UserUpdate = UNSET,
+        title: str = UNSET,
+        description: str = UNSET,
+        datetime_posted: datetime.datetime = UNSET,
+        add_extra_data: Dict[str, Any] = UNSET,
+        ordered_keywords: List[str] = UNSET,
+        unordered_keywords: List[str] = UNSET,
+        files: List[FileUpdate] = UNSET,
+    ):
+        self.website_id = website_id
+        self.site_submission_id = site_submission_id
+        self.update_time = update_time or datetime.datetime.now(datetime.timezone.utc)
+        self.is_deleted = is_deleted
+        self.uploader = uploader
+        self.uploader_update = uploader_update
+        self.title = title
+        self.description = description
+        self.datetime_posted = datetime_posted
+        self.add_extra_data = add_extra_data
+        self.ordered_keywords = ordered_keywords
+        self.unordered_keywords = unordered_keywords
+        self.files = files
+
+    def create_submission(self, db: "Database") -> Submission:
+        # Handle things which may be unset
+        uploader = self.uploader
+        uploader_id = None
+        if uploader is not UNSET:
+            uploader_id = uploader.user_id
+            if self.uploader_update is not UNSET:
+                uploader.add_update(self.uploader_update)
+                uploader.save(db)
+        elif self.uploader_update is not UNSET:
+            user = self.uploader_update.save(db)
+            uploader_id = user.user_id
+        title = unset_to_null(self.title)
+        description = unset_to_null(self.description)
+        datetime_posted = unset_to_null(self.datetime_posted)
+        extra_data = unset_to_null(self.add_extra_data)
+        submission_rows = db.insert(
+            "INSERT INTO submissions "
+            "(website_id, site_submission_id, is_deleted, first_scanned, latest_update, uploader_id, title, "
+            "description, datetime_posted, extra_data) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING submission_id",
+            (
+                self.website_id,
+                self.site_submission_id,
+                self.is_deleted,
+                self.update_time,
+                self.update_time,
+                uploader_id,
+                title,
+                description,
+                datetime_posted,
+                json_to_db(extra_data),
+            ),
+        )
+        submission_id = submission_rows[0][0]
+        submission_keywords = None
+        if self.ordered_keywords is not UNSET:
+            keywords_update = SubmissionKeywordsListUpdate.from_ordered_keywords(self.ordered_keywords)
+            submission_keywords = keywords_update.save(db, submission_id)
+        if self.ordered_keywords is not UNSET:
+            keywords_update = SubmissionKeywordsListUpdate.from_unordered_keywords(self.unordered_keywords)
+            submission_keywords = keywords_update.save(db, submission_id)
+        return Submission(
+            submission_id,
+            self.website_id,
+            self.site_submission_id,
+            self.is_deleted,
+            self.update_time,
+            self.update_time,
+            self.uploader,
+            title,
+            description,
+            datetime_posted,
+            extra_data,
+            submission_keywords
+        )
+
+    def save(self, db: "Database") -> Submission:
+        submission = Submission.from_database(
+            db, self.website_id, self.site_submission_id
+        )
+        if submission is not None:
+            submission.add_update(self)
+            submission.save(db)
+            return submission
+        return self.create_submission(db)
