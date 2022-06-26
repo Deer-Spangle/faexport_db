@@ -24,7 +24,7 @@ def import_submission_data(db: Database, submission_data: Dict) -> None:
         submission_data["description"] = submission_data["description"].replace("\0", "/0")
     sub_update = SubmissionUpdate(
         SITE_ID,
-        submission_data["id"],
+        str(submission_data["id"]),
         DATA_DATE,
         False,
         uploader_update=UserUpdate(
