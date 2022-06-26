@@ -12,6 +12,8 @@ from scripts.ingest.fa_indexer.models.file import FileUpdate, FileHashUpdate
 from scripts.ingest.fa_indexer.models.submission import SubmissionUpdate
 from scripts.ingest.fa_indexer.models.user import UserUpdate
 
+from faexport_db.models.website import Website
+
 DATA_DIR = "./fa-indexer/"
 SITE_ID = "fa"
 DATA_DATE = datetime.datetime(2019, 12, 4, 0, 0, 0, tzinfo=datetime.timezone.utc)
@@ -59,7 +61,8 @@ def scan_directory(db: Database, dir_path: str) -> None:
 
 
 def setup_initial_data(db: Database) -> None:
-    db.add_or_update_website(SITE_ID, "Fur Affinity", "https://furaffinity.net")
+    website = Website(SITE_ID, "Fur Affinity", "https://furaffinity.net")
+    website.save(db)
 
 
 if __name__ == "__main__":
