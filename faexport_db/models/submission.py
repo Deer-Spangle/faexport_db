@@ -46,7 +46,7 @@ class Submission:
         self.datetime_posted = datetime_posted
         self.extra_data = extra_data
         self.keywords = keywords  # TODO
-        self.keywords_update = UNSET  # TODO
+        self.keywords_update: SubmissionKeywordsListUpdate = UNSET  # TODO
         self.files = files  # TODO
         self.files_update = UNSET  # TODO
         self.updated = False
@@ -95,9 +95,12 @@ class Submission:
             self.updated = self.updated or (self.extra_data != new_extra_data)
             self.extra_data = new_extra_data
         if self.keywords is None and update.ordered_keywords is not UNSET:
-            keywords_update = SubmissionKeywordsListUpdate.from_ordered_keywords(update.ordered_keywords)
-            self.updated = self.updated or (keywords_update is not None)
-            self.keywords_update = keywords_update
+            self.keywords_update = SubmissionKeywordsListUpdate.from_ordered_keywords(update.ordered_keywords)
+        if self.keywords is None and update.unordered_keywords is not UNSET:
+            self.keywords_update = SubmissionKeywordsListUpdate.from_unordered_keywords(update.unordered_keywords)
+        if update.files is not UNSET:
+            self.files.add_update(update.files)
+        # Update first scanned, if this update is older
         if self.first_scanned > update.update_time:
             self.updated = True
             self.first_scanned = update.update_time
@@ -120,8 +123,10 @@ class Submission:
                     self.submission_id,
                 ),
             )
-            if self.keywords:
-                pass
+        # Update keywords
+        if self.keywords_update is not UNSET:
+            self.keywords_update.save(db, self.submission_id)
+            pass
             # TODO: update keywords
 
     @classmethod
@@ -257,10 +262,10 @@ class SubmissionUpdate:
         )
 
     def save(self, db: "Database") -> Submission:
-        # TODO: Check all this supports keywords and files
         submission = Submission.from_database(
             db, self.website_id, self.site_submission_id
         )
+        # TODO: Check all this supports keywords and files
         if submission is not None:
             submission.add_update(self)
             submission.save(db)

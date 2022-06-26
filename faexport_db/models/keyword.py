@@ -35,7 +35,7 @@ class SubmissionKeyword:
 
 class SubmissionKeywordsList:
 
-    def __init__(self, submission_id: int, keywords: Set[SubmissionKeyword]) -> None:
+    def __init__(self, submission_id: int, keywords: List[SubmissionKeyword]) -> None:
         self.submission_id = submission_id
         self.keywords = keywords
 
@@ -58,9 +58,6 @@ class SubmissionKeywordsList:
     def by_keyword(self) -> Dict[str, SubmissionKeyword]:
         return {keyword.keyword: keyword for keyword in self.keywords}
 
-    def add_update(self, update: "SubmissionKeywordsListUpdate") -> None:
-        pass  # TODO
-
     @classmethod
     def from_database(cls, db: "Database", submission_id: int) -> Optional["SubmissionKeywordsList"]:
         submission_keywords = db.select(
@@ -69,23 +66,14 @@ class SubmissionKeywordsList:
         )
         return cls(
             submission_id,
-            {
+            [
                 SubmissionKeyword(keyword_id, submission_id, keyword, ordinal)
                 for keyword_id, keyword, ordinal in submission_keywords
-            }
+            ]
         )
 
-    def save(self, db: "Database") -> None:
-        db_list = self.from_database(db, self.submission_id)
-        # TODO, I reckon
-        keyword_rows = db.select(
-            "SELECT keyword_id, keyword, ordinal FROM submission_keywords WHERE submission_id = %s", (sub_id,))
-        db_keywords = [row[1] for row in sorted(keyword_rows, key=lambda r: r[2])]
-        if keywords == db_keywords:
-            return
-        self.update("DELETE FROM submission_keywords WHERE submission_id = %s", (sub_id,))
-        self.add_keywords(sub_id, keywords)
-        pass  # TODO
+    def delete(self, db: Database) -> None:
+        db.update("DELETE FROM submission_keywords WHERE submission_id = %s", (self.submission_id,))
 
 
 class SubmissionKeywordUpdate:
@@ -127,17 +115,17 @@ class SubmissionKeywordsListUpdate:
         return [keyword.keyword for keyword in sorted(self.keyword_updates, key=lambda k: k.ordinal)]
 
     def create_keywords(self, db: Database, submission_id: int) -> SubmissionKeywordsList:
-        keywords = {
+        keywords = [
             keyword_update.create_keyword(db, submission_id) for keyword_update in self.keyword_updates
-        }
+        ]
         return SubmissionKeywordsList(submission_id, keywords)
 
     def save(self, db: "Database", submission_id: int) -> SubmissionKeywordsList:
         keyword_list = SubmissionKeywordsList.from_database(db, submission_id)
         if keyword_list is not None:
-            keyword_list.add_update(self)
-            keyword_list.save(db)
-            return keyword_list
+            if keyword_list.to_iterable() == self.to_iterable():
+                return keyword_list
+            keyword_list.delete(db)
         return self.create_keywords(db, submission_id)
 
     @classmethod
