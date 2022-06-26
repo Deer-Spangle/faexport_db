@@ -54,13 +54,6 @@ class Database:
         self.conn.commit()
         cur.close()
 
-    def add_or_update_website(self, site_id: str, name: str, link: str) -> str:
-        if self.select("SELECT website_id FROM websites WHERE website_id = %s;", (site_id,)):
-            return site_id
-        site_rows = self.insert("INSERT INTO websites (website_id, full_name, link) "
-                                "VALUES (%s, %s, %s) RETURNING website_id", (site_id, name, link))
-        return site_rows[0][0]
-
     def add_or_update_submission(
             self,
             submission_id: int,
