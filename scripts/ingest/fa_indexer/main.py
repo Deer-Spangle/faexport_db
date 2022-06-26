@@ -50,8 +50,8 @@ def scan_directory(db: Database, dir_path: str) -> None:
         for sub_id, submission in data.items():
             if submission is None:
                 continue
-            if int(sub_id) < 641877:
-                continue
+            # if int(sub_id) < 641877:
+            #     continue
             # TODO: find timezone?
             tqdm.tqdm.write(f"Importing submission: {sub_id}")
             import_submission_data(db, submission)
