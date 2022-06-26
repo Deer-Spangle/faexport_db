@@ -20,10 +20,6 @@ DATA_DATE = datetime.datetime(2019, 12, 4, 0, 0, 0, tzinfo=datetime.timezone.utc
 
 
 def import_submission_data(db: Database, submission_data: Dict) -> None:
-    user_update = UserUpdate(
-        SITE_ID, submission_data["username"], DATA_DATE
-    )
-    user = user_update.save(db)
     if submission_data["id"] == "641877":
         submission_data["description"] = submission_data["description"].replace("\0", "/0")
     sub_update = SubmissionUpdate(
@@ -31,7 +27,9 @@ def import_submission_data(db: Database, submission_data: Dict) -> None:
         submission_data["id"],
         DATA_DATE,
         False,
-        uploader=user,
+        uploader_update=UserUpdate(
+            SITE_ID, submission_data["username"], DATA_DATE
+        ),
         title=submission_data["title"],
         description=submission_data["description"],
         datetime_posted=dateutil.parser.parse(submission_data["date"]),
