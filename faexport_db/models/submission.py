@@ -76,10 +76,7 @@ class Submission:
             if update.files is not UNSET:
                 self.files_update = update.files
             return
-        # If it's an older update, we can still update some things
-        if self.uploader is None and update.uploader is not UNSET:
-            self.updated = self.updated or (self.uploader != update.uploader)
-            self.uploader = update.uploader
+        # If it's an older update, we can still update some things if they're unset
         if self.title is None and update.title is not UNSET:
             self.updated = self.updated or (self.title != update.title)
             self.title = update.title
@@ -95,10 +92,18 @@ class Submission:
             new_extra_data = merge_dicts(update.add_extra_data, self.extra_data)
             self.updated = self.updated or (self.extra_data != new_extra_data)
             self.extra_data = new_extra_data
+        # Update uploader
+        if self.uploader is None and update.uploader is not UNSET:
+            self.updated = True
+            self.uploader = update.uploader
+        if update.uploader_update is not UNSET:
+            self.uploader.add_update(update.uploader_update)
+        # Update keywords
         if self.keywords is None and update.ordered_keywords is not UNSET:
             self.keywords_update = SubmissionKeywordsListUpdate.from_ordered_keywords(update.ordered_keywords)
         if self.keywords is None and update.unordered_keywords is not UNSET:
             self.keywords_update = SubmissionKeywordsListUpdate.from_unordered_keywords(update.unordered_keywords)
+        # Update files
         if update.files is not UNSET:
             self.files.add_update(update.files)
         # Update first scanned, if this update is older
@@ -124,6 +129,9 @@ class Submission:
                     self.submission_id,
                 ),
             )
+        # Update uploader
+        if self.uploader_update is not UNSET:
+            self.uploader.save(db)
         # Update keywords
         if self.keywords_update is not UNSET:
             self.keywords_update.save(db, self.submission_id)
