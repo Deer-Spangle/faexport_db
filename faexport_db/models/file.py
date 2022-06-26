@@ -31,6 +31,21 @@ class File:
         self.hashes = hashes
 
 
+class FileUpdate:
+    def __init__(
+            self,
+            file_url: str = UNSET,
+            *,
+            file_size: str = UNSET,
+            add_extra_data: Dict[str, Any] = UNSET,
+            add_hashes: List["FileHashUpdate"] = UNSET,
+    ):
+        self.file_url = file_url
+        self.file_size = file_size
+        self.add_extra_data = add_extra_data
+        self.add_hashes = add_hashes
+
+
 class FileList:
     def __init__(
             self,
@@ -39,6 +54,11 @@ class FileList:
     ) -> None:
         self.sub_id = sub_id
         self.files = files
+        self.updated = False
+
+    def add_update(self, update: FileListUpdate) -> None:
+        # TODO
+        pass
 
     @classmethod
     def from_database(cls, db: Database, sub_id: int) -> Optional[FileList]:
@@ -60,20 +80,19 @@ class FileList:
             ))
         return FileList(sub_id, files)
 
+    def save(self, db: Database) -> None:
+        pass  # TODO
 
-class FileUpdate:
+
+class FileListUpdate:
     def __init__(
             self,
-            file_url: str = UNSET,
-            *,
-            file_size: str = UNSET,
-            add_extra_data: Dict[str, Any] = UNSET,
-            add_hashes: List["FileHashUpdate"] = UNSET,
-    ):
-        self.file_url = file_url
-        self.file_size = file_size
-        self.add_extra_data = add_extra_data
-        self.add_hashes = add_hashes
+            file_updates: List[FileUpdate],
+    ) -> None:
+        self.file_updates = file_updates
+
+    def create(self, db: Database, submission_id: int) -> Optional[FileList]:
+        pass  # TODO
 
 
 class FileHash:

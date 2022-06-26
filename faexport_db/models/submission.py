@@ -12,7 +12,7 @@ from faexport_db.db import (
 from faexport_db.models.keyword import SubmissionKeywordsListUpdate, SubmissionKeywordsList
 
 if TYPE_CHECKING:
-    from faexport_db.models.file import FileUpdate, FileList
+    from faexport_db.models.file import FileList, FileListUpdate
     from faexport_db.models.user import User, UserUpdate
 
 
@@ -39,20 +39,19 @@ class Submission:
         self.is_deleted = is_deleted
         self.first_scanned = first_scanned
         self.latest_update = latest_update
-        self.uploader = uploader  # TODO
-        self.uploader_update = UNSET
+        self.uploader = uploader
+        self.uploader_update: UserUpdate = UNSET
         self.title = title
         self.description = description
         self.datetime_posted = datetime_posted
         self.extra_data = extra_data
-        self.keywords = keywords  # TODO
-        self.keywords_update: SubmissionKeywordsListUpdate = UNSET  # TODO
-        self.files = files  # TODO
-        self.files_update = UNSET  # TODO
+        self.keywords = keywords
+        self.keywords_update: SubmissionKeywordsListUpdate = UNSET
+        self.files = files
+        self.files_update: FileListUpdate = UNSET
         self.updated = False
 
     def add_update(self, update: "SubmissionUpdate") -> None:
-        # TODO
         if update.update_time > self.latest_update:
             self.updated = True  # At the very least, update time is being updated
             self.latest_update = update.update_time
@@ -74,6 +73,8 @@ class Submission:
                 self.keywords_update = SubmissionKeywordsListUpdate.from_ordered_keywords(update.ordered_keywords)
             if update.unordered_keywords is not UNSET:
                 self.keywords_update = SubmissionKeywordsListUpdate.from_unordered_keywords(update.unordered_keywords)
+            if update.files is not UNSET:
+                self.files_update = update.files
             return
         # If it's an older update, we can still update some things
         if self.uploader is None and update.uploader is not UNSET:
@@ -127,7 +128,9 @@ class Submission:
         if self.keywords_update is not UNSET:
             self.keywords_update.save(db, self.submission_id)
             pass
-            # TODO: update keywords
+        # Update files
+        if self.files.updated:
+            self.files.save(db)
 
     @classmethod
     def from_database(
@@ -188,7 +191,7 @@ class SubmissionUpdate:
         add_extra_data: Dict[str, Any] = UNSET,
         ordered_keywords: List[str] = UNSET,
         unordered_keywords: List[str] = UNSET,
-        files: List[FileUpdate] = UNSET,
+        files: FileListUpdate = UNSET,
     ):
         self.website_id = website_id
         self.site_submission_id = site_submission_id
@@ -239,6 +242,7 @@ class SubmissionUpdate:
             ),
         )
         submission_id = submission_rows[0][0]
+        # Save keywords
         submission_keywords = None
         if self.ordered_keywords is not UNSET:
             keywords_update = SubmissionKeywordsListUpdate.from_ordered_keywords(self.ordered_keywords)
@@ -246,6 +250,10 @@ class SubmissionUpdate:
         if self.ordered_keywords is not UNSET:
             keywords_update = SubmissionKeywordsListUpdate.from_unordered_keywords(self.unordered_keywords)
             submission_keywords = keywords_update.save(db, submission_id)
+        # Save files
+        files = None
+        if self.files is not UNSET:
+            files = self.files.create(db, submission_id)
         return Submission(
             submission_id,
             self.website_id,
@@ -258,14 +266,14 @@ class SubmissionUpdate:
             description,
             datetime_posted,
             extra_data,
-            submission_keywords
+            submission_keywords,
+            files
         )
 
     def save(self, db: "Database") -> Submission:
         submission = Submission.from_database(
             db, self.website_id, self.site_submission_id
         )
-        # TODO: Check all this supports keywords and files
         if submission is not None:
             submission.add_update(self)
             submission.save(db)
