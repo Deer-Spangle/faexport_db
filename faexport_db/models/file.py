@@ -61,6 +61,7 @@ class File:
             self.updated = True
         if update.add_hashes is not UNSET:
             self.hashes.add_update(update.add_hashes)
+            self.updated = self.updated or self.hashes.updated
 
     def save(self, db: Database) -> None:
         if self.updated:
@@ -133,7 +134,12 @@ class FileList:
         self.sub_id = sub_id
         self.files = files
         self.add_files: List[FileUpdate] = []
-        self.updated = False
+
+    @property
+    def updated(self) -> bool:
+        if self.add_files:
+            return True
+        return any(file.updated for file in self.files)
 
     def current_matching_file(self, site_file_id: Optional[str]) -> Optional[File]:
         return next(
@@ -150,7 +156,6 @@ class FileList:
         matching = self.current_matching_file(site_file_id)
         if matching is None:
             self.add_files.append(update)
-            self.updated = True
             return
         # Check if the update clashes with the file that exists
         if matching.is_clashing(update):
@@ -158,9 +163,11 @@ class FileList:
                 matching.is_current = False
                 matching.updated = True
                 update.is_current = True
+                self.add_files.append(update)
                 return
             elif update.update_time < matching.first_scanned:
                 update.is_current = False
+                self.add_files.append(update)
                 return
             else:
                 raise ValueError("File Update clashes, confusing")
@@ -259,7 +266,11 @@ class FileHashList:
     ) -> None:
         self.file_id = file_id
         self.hashes = hashes
-        self.add_hashes: List[FileHashUpdate] = UNSET
+        self.add_hashes: List[FileHashUpdate] = []
+
+    @property
+    def updated(self) -> bool:
+        return bool(self.add_hashes)
 
     @classmethod
     def from_database(cls, db: Database, file_id: int) -> "FileHashList":
@@ -277,10 +288,16 @@ class FileHashList:
         update_hash_ids = {file_hash.algo_id for file_hash in update.hashes}
         return bool(my_algo_ids.intersection(update_hash_ids))
 
+    def has_hash(self, new_hash: FileHashUpdate) -> bool:
+        for file_hash in self.hashes:
+            if file_hash.algo_id == new_hash.algo_id:
+                return True
+
     def add_update(self, update: FileHashListUpdate) -> None:
         self.add_hashes = []
         for file_hash in update.hashes:
-            self.add_hashes.append(file_hash)
+            if not self.has_hash(file_hash):
+                self.add_hashes.append(file_hash)
 
     def save(self, db: Database) -> None:
         new_hashes = []
