@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Optional, Dict, Any, List, TYPE_CHECKING
 
-from faexport_db.db import UNSET, Database, unset_to_null
+from faexport_db.db import UNSET, Database, unset_to_null, merge_dicts, json_to_db
 
 if TYPE_CHECKING:
     import datetime
@@ -31,6 +31,51 @@ class File:
         self.file_size = file_size
         self.extra_data = extra_data
         self.hashes = hashes
+        self.updated = False
+
+    def is_clashing(self, update: FileUpdate) -> bool:
+        if update.file_url is not UNSET and self.file_url is not None and self.file_url != update.file_url:
+            return True
+        if update.file_size is not UNSET and self.file_size is not None and self.file_size != update.file_size:
+            return True
+        if self.hashes.is_clashing(update.add_hashes):
+            return True
+        return False
+
+    def add_update(self, update: FileUpdate) -> None:
+        if update.update_time > self.latest_update:
+            self.latest_update = update.update_time
+            self.updated = True
+            if update.file_url is not UNSET:
+                self.file_url = update.file_url
+            if update.file_size is not UNSET:
+                self.file_size = update.file_size
+            if update.add_extra_data is not UNSET:
+                self.extra_data = merge_dicts(self.extra_data, update.add_extra_data)
+            if update.add_hashes is not UNSET:
+                self.hashes.add_update(update.add_hashes)
+            return
+        if update.update_time < self.first_scanned:
+            self.first_scanned = update.update_time
+            self.updated = True
+        if update.add_extra_data is not UNSET:
+            self.extra_data = merge_dicts(update.add_extra_data, self.extra_data)
+            self.updated = True
+        if update.add_hashes is not UNSET:
+            self.hashes.add_update(update.add_hashes)
+
+    def save(self, db: Database) -> None:
+        if self.updated:
+            db.update(
+                "UPDATE files SET first_scanned = %s AND latest_update = %s AND file_url = %s AND file_size = %s "
+                "AND extra_data = %s "
+                "WHERE file_id = %s",
+                (
+                    self.first_scanned, self.latest_update, self.file_url, self.file_size, json_to_db(self.extra_data),
+                    self.file_id
+                )
+            )
+        self.hashes.save(db)
 
 
 class FileUpdate:
@@ -88,11 +133,44 @@ class FileList:
     ) -> None:
         self.sub_id = sub_id
         self.files = files
+        self.add_files: List[FileUpdate] = []
         self.updated = False
 
+    def current_matching_file(self, site_file_id: Optional[str]) -> Optional[File]:
+        return next(
+            filter(
+                lambda file: file.is_current and file.site_file_id == site_file_id,
+                self.files
+            ),
+            None
+        )
+
+    def add_file_update(self, update: FileUpdate) -> None:
+        # Check if a file exists for that file ID
+        site_file_id = unset_to_null(update.site_file_id)
+        matching = self.current_matching_file(site_file_id)
+        if matching is None:
+            self.add_files.append(update)
+            self.updated = True
+            return
+        # Check if the update clashes with the file that exists
+        if matching.is_clashing(update):
+            if update.update_time > matching.latest_update:
+                matching.is_current = False
+                matching.updated = True
+                update.is_current = True
+                return
+            elif update.update_time < matching.first_scanned:
+                update.is_current = False
+                return
+            else:
+                raise ValueError("File Update clashes, confusing")
+        else:
+            matching.add_update(update)
+
     def add_update(self, update: FileListUpdate) -> None:
-        # TODO
-        pass
+        for file_update in update.file_updates:
+            self.add_file_update(file_update)
 
     @classmethod
     def from_database(cls, db: Database, sub_id: int) -> Optional[FileList]:
@@ -115,7 +193,14 @@ class FileList:
         return FileList(sub_id, files)
 
     def save(self, db: Database) -> None:
-        pass  # TODO
+        for file in self.files:
+            if file.updated:
+                file.save(db)
+        new_files = []
+        for update in self.add_files:
+            new_files.append(update.create(db, self.sub_id))
+        self.files += new_files
+        self.add_files.clear()
 
 
 class FileListUpdate:
@@ -177,6 +262,7 @@ class FileHashList:
     ) -> None:
         self.file_id = file_id
         self.hashes = hashes
+        self.add_hashes: List[FileHashUpdate] = UNSET
 
     @classmethod
     def from_database(cls, db: Database, file_id: int) -> "FileHashList":
@@ -188,6 +274,23 @@ class FileHashList:
             file_id,
             [FileHash(hash_id, file_id, algo_id, hash_value) for hash_id, algo_id, hash_value in hash_rows]
         )
+
+    def is_clashing(self, update: FileHashListUpdate) -> bool:
+        my_algo_ids = {file_hash.algo_id for file_hash in self.hashes}
+        update_hash_ids = {file_hash.algo_id for file_hash in update.hashes}
+        return bool(my_algo_ids.intersection(update_hash_ids))
+
+    def add_update(self, update: FileHashListUpdate) -> None:
+        self.add_hashes = []
+        for file_hash in update.hashes:
+            self.add_hashes.append(file_hash)
+
+    def save(self, db: Database) -> None:
+        new_hashes = []
+        for file_hash in self.add_hashes:
+            new_hashes.append(file_hash.create(db, self.file_id))
+        self.hashes += new_hashes
+        self.add_hashes.clear()
 
 
 class FileHashListUpdate:
