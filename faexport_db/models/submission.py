@@ -214,8 +214,11 @@ class SubmissionUpdate:
         self.update_time = update_time or datetime.datetime.now(datetime.timezone.utc)
         self.is_deleted = is_deleted
         self.uploader_update = uploader_update
-        if self.uploader_update is not UNSET and not self.uploader_update.update_time_set:
-            self.uploader_update.update_time = self.update_time
+        if self.uploader_update is not UNSET:
+            if self.uploader_update.website_id is None:
+                self.uploader_update.website_id = self.website_id
+            if not self.uploader_update.update_time_set:
+                self.uploader_update.update_time = self.update_time
         self.title = title
         self.description = description
         self.datetime_posted = datetime_posted
