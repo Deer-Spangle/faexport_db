@@ -246,7 +246,7 @@ class FileHashUpdate:
 
     def create(self, db: Database, file_id: int) -> FileHash:
         hash_rows = db.insert(
-            "INSERT INTO file_hashes (file_id, algo_id, hash_value) VALUES (%s, %s, %s)",
+            "INSERT INTO file_hashes (file_id, algo_id, hash_value) VALUES (%s, %s, %s) RETURNING hash_id",
             (file_id, self.algo_id, self.hash_value)
         )
         hash_id = hash_rows[0][0]
