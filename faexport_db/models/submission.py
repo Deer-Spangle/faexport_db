@@ -11,10 +11,11 @@ from faexport_db.db import (
 )
 from faexport_db.models.file import FileList
 from faexport_db.models.keyword import SubmissionKeywordsListUpdate, SubmissionKeywordsList
+from faexport_db.models.user import User
 
 if TYPE_CHECKING:
     from faexport_db.models.file import FileListUpdate
-    from faexport_db.models.user import User, UserUpdate
+    from faexport_db.models.user import UserUpdate
 
 
 class Submission:
