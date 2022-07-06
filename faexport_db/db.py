@@ -76,8 +76,8 @@ class Database:
             if latest_update < DATA_DATE:
                 self.update(
                     "UPDATE submissions "
-                    "SET is_deleted = %s AND latest_update = %s AND uploader_id = %s AND title = %s "
-                    "AND description = %s AND datetime_posted = %s AND extra_data = %s "
+                    "SET is_deleted = %s, latest_update = %s, uploader_id = %s, title = %s, description = %s, "
+                    "datetime_posted = %s, extra_data = %s "
                     "WHERE submission_id = %s",
                     (
                         False, DATA_DATE, uploader_id, title, description, upload_datetime, json_to_db(extra_data),
@@ -121,7 +121,7 @@ class Database:
             if datetime_posted < DATA_DATE:
                 if file_url != filename:
                     self.update("DELETE FROM file_hashes WHERE file_id = %s", (file_id,))
-                self.update("UPDATE files SET file_url = %s AND latest_update = %s WHERE file_id = %s",
+                self.update("UPDATE files SET file_url = %s, latest_update = %s WHERE file_id = %s",
                             (filename, DATA_DATE, file_id))
             return file_id
         file_id = self.insert("INSERT INTO files (submission_id, site_file_id, first_scanned, latest_update, file_url) "

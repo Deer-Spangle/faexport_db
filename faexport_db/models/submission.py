@@ -118,8 +118,8 @@ class Submission:
         if self.updated:
             db.update(
                 "UPDATE submissions "
-                "SET is_deleted = %s AND first_scanned = %s AND latest_update = %s AND uploader_id = %s "
-                "AND title = %s AND description = %s AND datetime_posted = %s AND extra_data = %s "
+                "SET is_deleted = %s, first_scanned = %s, latest_update = %s, uploader_id = %s, title = %s, "
+                "description = %s, datetime_posted = %s, extra_data = %s "
                 "WHERE submission_id = %s",
                 (
                     self.is_deleted,

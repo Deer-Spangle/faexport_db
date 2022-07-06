@@ -66,8 +66,8 @@ class File:
     def save(self, db: Database) -> None:
         if self.updated:
             db.update(
-                "UPDATE files SET first_scanned = %s AND latest_update = %s AND file_url = %s AND file_size = %s "
-                "AND extra_data = %s "
+                "UPDATE files SET first_scanned = %s, latest_update = %s, file_url = %s, file_size = %s, "
+                "extra_data = %s "
                 "WHERE file_id = %s",
                 (
                     self.first_scanned, self.latest_update, self.file_url, self.file_size, json_to_db(self.extra_data),

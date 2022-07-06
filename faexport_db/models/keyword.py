@@ -28,7 +28,7 @@ class SubmissionKeyword:
     def save(self, db: "Database") -> None:
         if self.updated:
             db.update(
-                "UPDATE submission_keywords SET keyword = %s AND ordinal = %s WHERE keyword_id = %s",
+                "UPDATE submission_keywords SET keyword = %s, ordinal = %s WHERE keyword_id = %s",
                 (self.keyword, self.ordinal, self.keyword_id)
             )
 

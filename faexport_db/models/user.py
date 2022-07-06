@@ -53,8 +53,7 @@ class User:
         if self.updated:
             db.update(
                 "UPDATE users "
-                "SET is_deleted = %s AND first_scanned = %s AND latest_update = %s AND display_name = %s "
-                "AND extra_data = %s "
+                "SET is_deleted = %s, first_scanned = %s, latest_update = %s, display_name = %s, extra_data = %s "
                 "WHERE user_id = %s", (
                     self.is_deleted, self.first_scanned, self.latest_update, self.display_name,
                     json_to_db(self.extra_data), self.user_id
