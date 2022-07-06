@@ -185,7 +185,7 @@ class FileList:
             files.append(File(
                 file_id,
                 sub_id,
-                site_file_id, first_scanned, is_current, latest_update, file_url, file_size, extra_data, hashes
+                site_file_id, is_current, first_scanned, latest_update, file_url, file_size, extra_data, hashes
             ))
         return FileList(sub_id, files)
 
