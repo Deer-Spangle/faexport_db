@@ -1,5 +1,5 @@
 import datetime
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List, Tuple
 
 from faexport_db.db import merge_dicts, Database, json_to_db, UNSET, unset_to_null
 
@@ -62,15 +62,55 @@ class User:
             )
 
     @classmethod
-    def from_database(cls, db: "Database", website_id: str, site_user_id: str) -> Optional["User"]:
+    def from_database_by_user_id(cls, db: "Database", user_id: int) -> Optional["User"]:
         user_rows = db.select(
-            "SELECT user_id, is_deleted, first_scanned, latest_update, display_name, extra_data "
-            "FROM users WHERE website_id = %s AND site_user_id = %s",
-            (website_id, site_user_id)
+            "SELECT user_id, website_id, site_user_id, is_deleted, first_scanned, latest_update, display_name, "
+            "extra_data "
+            "FROM users WHERE user_id = %s",
+            (user_id,),
         )
+        return cls.from_user_rows(user_rows)
+
+    @classmethod
+    def from_database(
+        cls, db: "Database", website_id: str, site_user_id: str
+    ) -> Optional["User"]:
+        user_rows = db.select(
+            "SELECT user_id, website_id, site_user_id, is_deleted, first_scanned, latest_update, display_name, "
+            "extra_data "
+            "FROM users WHERE website_id = %s AND site_user_id = %s",
+            (website_id, site_user_id),
+        )
+        return cls.from_user_rows(user_rows)
+
+    @classmethod
+    def from_user_rows(
+        cls,
+        user_rows: List[
+            Tuple[
+                int,
+                str,
+                str,
+                bool,
+                datetime.datetime,
+                datetime.datetime,
+                Optional[str],
+                Optional[Dict],
+            ]
+        ],
+    ) -> Optional["User"]:
         if not user_rows:
             return None
-        user_id, is_deleted, first_scanned, latest_update, display_name, extra_data = user_rows[0]
+        (
+            user_id,
+            website_id,
+            site_user_id,
+            is_deleted,
+            first_scanned,
+            latest_update,
+            display_name,
+            extra_data,
+        ) = user_rows[0]
         return cls(
             user_id,
             website_id,
@@ -79,7 +119,7 @@ class User:
             first_scanned,
             latest_update,
             display_name,
-            extra_data
+            extra_data,
         )
 
 

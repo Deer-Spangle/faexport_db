@@ -164,6 +164,9 @@ class Submission:
             datetime_posted,
             extra_data,
         ) = sub_rows[0]
+        uploader = None
+        if uploader_id is not None:
+            uploader = User.from_database_by_user_id(db, uploader_id)
         keywords = SubmissionKeywordsList.from_database(db, sub_id)
         files = FileList.from_database(db, sub_id)
         return cls(
@@ -173,7 +176,7 @@ class Submission:
             is_deleted,
             first_scanned,
             latest_update,
-            uploader_id,
+            uploader,
             title,
             description,
             datetime_posted,
