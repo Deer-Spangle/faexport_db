@@ -28,7 +28,7 @@ def import_submission_data(db: Database, submission_data: Dict) -> None:
         DATA_DATE,
         False,
         uploader_update=UserUpdate(
-            SITE_ID, submission_data["username"], DATA_DATE
+            SITE_ID, submission_data["username"]
         ),
         title=submission_data["title"],
         description=submission_data["description"],

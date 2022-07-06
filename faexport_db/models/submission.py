@@ -207,6 +207,8 @@ class SubmissionUpdate:
         self.is_deleted = is_deleted
         self.uploader = uploader
         self.uploader_update = uploader_update
+        if self.uploader_update is not UNSET and not self.uploader_update.update_time_set:
+            self.uploader_update.update_time = self.update_time
         self.title = title
         self.description = description
         self.datetime_posted = datetime_posted
@@ -214,6 +216,10 @@ class SubmissionUpdate:
         self.ordered_keywords = ordered_keywords
         self.unordered_keywords = unordered_keywords
         self.files = files
+        if self.files is not UNSET:
+            for file_update in self.files.file_updates:
+                if not file_update.update_time_set:
+                    file_update.update_time = self.update_time
 
     def create_submission(self, db: "Database") -> Submission:
         # Handle things which may be unset

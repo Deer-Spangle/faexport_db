@@ -91,6 +91,7 @@ class FileUpdate:
     ):
         self.file_url = file_url
         self.update_time = update_time or datetime.datetime.now(datetime.timezone.utc)
+        self.update_time_set = update_time is not None
         self.site_file_id = site_file_id
         self.file_size = file_size
         self.add_extra_data = add_extra_data

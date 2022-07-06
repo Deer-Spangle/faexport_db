@@ -97,6 +97,7 @@ class UserUpdate:
         self.website_id = website_id
         self.site_user_id = site_user_id
         self.update_time = update_time or datetime.datetime.now(datetime.timezone.utc)
+        self.update_time_set = update_time is not None
         self.is_deleted = is_deleted
         self.display_name = display_name
         self.add_extra_data = add_extra_data
