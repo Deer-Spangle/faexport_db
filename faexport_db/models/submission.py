@@ -40,7 +40,7 @@ class Submission:
         self.first_scanned = first_scanned
         self.latest_update = latest_update
         self.uploader = uploader
-        self.uploader_update: UserUpdate = UNSET
+        self.uploader_create: UserUpdate = UNSET
         self.title = title
         self.description = description
         self.datetime_posted = datetime_posted
@@ -57,10 +57,11 @@ class Submission:
             self.latest_update = update.update_time
             if update.is_deleted is not UNSET:
                 self.is_deleted = update.is_deleted
-            if update.uploader is not UNSET:
-                self.uploader = update.uploader
             if update.uploader_update is not UNSET:
-                self.uploader_update = update.uploader_update
+                if self.uploader is not None:
+                    self.uploader.add_update(update.uploader_update)
+                else:
+                    self.uploader_create = update.uploader_update
             if update.title is not UNSET:
                 self.title = update.title
             if update.description is not UNSET:
@@ -93,11 +94,11 @@ class Submission:
             self.updated = self.updated or (self.extra_data != new_extra_data)
             self.extra_data = new_extra_data
         # Update uploader
-        if self.uploader is None and update.uploader is not UNSET:
-            self.updated = True
-            self.uploader = update.uploader
         if update.uploader_update is not UNSET:
-            self.uploader.add_update(update.uploader_update)
+            if self.uploader is None:
+                self.uploader_create = update.uploader_update
+            else:
+                self.uploader.add_update(update.uploader_update)
         # Update keywords
         if self.keywords is None and update.ordered_keywords is not UNSET:
             self.keywords_update = SubmissionKeywordsListUpdate.from_ordered_keywords(update.ordered_keywords)
@@ -122,6 +123,7 @@ class Submission:
                     self.is_deleted,
                     self.first_scanned,
                     self.latest_update,
+                    self.uploader.user_id if self.uploader else None,
                     self.title,
                     self.description,
                     self.datetime_posted,
@@ -130,8 +132,10 @@ class Submission:
                 ),
             )
         # Update uploader
-        if self.uploader_update is not UNSET:
+        if self.uploader is not None and self.uploader.updated:
             self.uploader.save(db)
+        if self.uploader_create is not UNSET:
+            self.uploader = self.uploader_create.create_user(db)
         # Update keywords
         if self.keywords_update is not UNSET:
             self.keywords_update.save(db, self.submission_id)
@@ -194,7 +198,6 @@ class SubmissionUpdate:
         update_time: datetime.datetime = None,
         is_deleted: bool = False,
         *,
-        uploader: User = UNSET,
         uploader_update: UserUpdate = UNSET,
         title: str = UNSET,
         description: str = UNSET,
@@ -208,7 +211,6 @@ class SubmissionUpdate:
         self.site_submission_id = site_submission_id
         self.update_time = update_time or datetime.datetime.now(datetime.timezone.utc)
         self.is_deleted = is_deleted
-        self.uploader = uploader
         self.uploader_update = uploader_update
         if self.uploader_update is not UNSET and not self.uploader_update.update_time_set:
             self.uploader_update.update_time = self.update_time
@@ -226,16 +228,11 @@ class SubmissionUpdate:
 
     def create_submission(self, db: "Database") -> Submission:
         # Handle things which may be unset
-        uploader = self.uploader
+        uploader = None
         uploader_id = None
-        if uploader is not UNSET:
+        if self.uploader_update is not UNSET:
+            uploader = self.uploader_update.save(db)
             uploader_id = uploader.user_id
-            if self.uploader_update is not UNSET:
-                uploader.add_update(self.uploader_update)
-                uploader.save(db)
-        elif self.uploader_update is not UNSET:
-            user = self.uploader_update.save(db)
-            uploader_id = user.user_id
         title = unset_to_null(self.title)
         description = unset_to_null(self.description)
         datetime_posted = unset_to_null(self.datetime_posted)
@@ -278,7 +275,7 @@ class SubmissionUpdate:
             self.is_deleted,
             self.update_time,
             self.update_time,
-            self.uploader,
+            uploader,
             title,
             description,
             datetime_posted,
