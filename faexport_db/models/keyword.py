@@ -59,7 +59,7 @@ class SubmissionKeywordsList:
         return {keyword.keyword: keyword for keyword in self.keywords}
 
     @classmethod
-    def from_database(cls, db: "Database", submission_id: int) -> Optional["SubmissionKeywordsList"]:
+    def from_database(cls, db: "Database", submission_id: int) -> "SubmissionKeywordsList":
         submission_keywords = db.select(
             "SELECT keyword_id, keyword, ordinal FROM submission_keywords WHERE submission_id = %s",
             (submission_id,)

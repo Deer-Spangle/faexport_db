@@ -1,10 +1,8 @@
 from __future__ import annotations
-from typing import Optional, Dict, Any, List, TYPE_CHECKING
+from typing import Optional, Dict, Any, List
+import datetime
 
 from faexport_db.db import UNSET, Database, unset_to_null, merge_dicts, json_to_db
-
-if TYPE_CHECKING:
-    import datetime
 
 
 class File:
@@ -174,14 +172,12 @@ class FileList:
             self.add_file_update(file_update)
 
     @classmethod
-    def from_database(cls, db: Database, sub_id: int) -> Optional[FileList]:
+    def from_database(cls, db: Database, sub_id: int) -> FileList:
         file_rows = db.select(
             "SELECT file_id, site_file_id, is_current, first_scanned, latest_update, file_url, file_size, extra_data "
             "FROM files WHERE submission_id = %s",
             (sub_id,)
         )
-        if not file_rows:
-            return None
         files = []
         for file_row in file_rows:
             file_id, site_file_id, is_current, first_scanned, latest_update, file_url, file_size, extra_data = file_row

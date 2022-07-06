@@ -9,10 +9,11 @@ from faexport_db.db import (
     unset_to_null,
     UNSET,
 )
+from faexport_db.models.file import FileList
 from faexport_db.models.keyword import SubmissionKeywordsListUpdate, SubmissionKeywordsList
 
 if TYPE_CHECKING:
-    from faexport_db.models.file import FileList, FileListUpdate
+    from faexport_db.models.file import FileListUpdate
     from faexport_db.models.user import User, UserUpdate
 
 
@@ -30,8 +31,8 @@ class Submission:
         description: Optional[str],
         datetime_posted: Optional[datetime.datetime],
         extra_data: Optional[Dict[str, Any]],
-        keywords: Optional[SubmissionKeywordsList],
-        files: Optional[FileList],
+        keywords: SubmissionKeywordsList,
+        files: FileList,
     ):
         self.submission_id = submission_id
         self.website_id = website_id
@@ -138,11 +139,12 @@ class Submission:
             self.uploader = self.uploader_create.create_user(db)
         # Update keywords
         if self.keywords_update is not UNSET:
-            self.keywords_update.save(db, self.submission_id)
-            pass
+            self.keywords = self.keywords_update.save(db, self.submission_id)
         # Update files
         if self.files.updated:
             self.files.save(db)
+        if self.files_update is not UNSET:
+            self.files = self.files_update.create(db, self.submission_id)
 
     @classmethod
     def from_database(
@@ -257,7 +259,7 @@ class SubmissionUpdate:
         )
         submission_id = submission_rows[0][0]
         # Save keywords
-        submission_keywords = None
+        submission_keywords = SubmissionKeywordsList(submission_id, [])
         if self.ordered_keywords is not UNSET:
             keywords_update = SubmissionKeywordsListUpdate.from_ordered_keywords(self.ordered_keywords)
             submission_keywords = keywords_update.save(db, submission_id)
@@ -265,7 +267,7 @@ class SubmissionUpdate:
             keywords_update = SubmissionKeywordsListUpdate.from_unordered_keywords(self.unordered_keywords)
             submission_keywords = keywords_update.save(db, submission_id)
         # Save files
-        files = None
+        files = FileList(submission_id, [])
         if self.files is not UNSET:
             files = self.files.create(db, submission_id)
         return Submission(
