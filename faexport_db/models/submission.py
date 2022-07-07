@@ -267,7 +267,7 @@ class SubmissionUpdate:
         if self.ordered_keywords is not UNSET:
             keywords_update = SubmissionKeywordsListUpdate.from_ordered_keywords(self.ordered_keywords)
             submission_keywords = keywords_update.save(db, submission_id)
-        if self.ordered_keywords is not UNSET:
+        if self.unordered_keywords is not UNSET:
             keywords_update = SubmissionKeywordsListUpdate.from_unordered_keywords(self.unordered_keywords)
             submission_keywords = keywords_update.save(db, submission_id)
         # Save files
