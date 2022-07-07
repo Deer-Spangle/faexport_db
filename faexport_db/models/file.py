@@ -104,7 +104,7 @@ class FileUpdate:
         file_rows = db.insert(
             "INSERT INTO files "
             "(submission_id, site_file_id, is_current, first_scanned, latest_update, file_url, file_size, extra_data) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING file_id",
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING file_id",
             (submission_id, site_file_id, True, self.update_time, self.update_time, file_url, file_size, extra_data)
         )
         file_id = file_rows[0][0]
