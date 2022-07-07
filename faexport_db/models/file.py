@@ -36,7 +36,7 @@ class File:
             return True
         if update.file_size is not UNSET and self.file_size is not None and self.file_size != update.file_size:
             return True
-        if self.hashes.is_clashing(update.add_hashes):
+        if update.add_hashes is not UNSET and self.hashes.is_clashing(update.add_hashes):
             return True
         return False
 
