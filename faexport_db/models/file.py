@@ -227,7 +227,7 @@ class FileHash:
             hash_id: int,
             file_id: int,
             algo_id: str,
-            hash_value: str
+            hash_value: bytes
     ) -> None:
         self.hash_id = hash_id
         self.file_id = file_id
@@ -239,7 +239,7 @@ class FileHashUpdate:
     def __init__(
             self,
             algo_id: str,
-            hash_value: str
+            hash_value: bytes
     ):
         self.algo_id = algo_id
         self.hash_value = hash_value

@@ -128,7 +128,7 @@ create table file_hashes
     algo_id    text not null
         constraint file_hashes_hash_algos_algo_id_fk
             references hash_algos,
-    hash_value text not null
+    hash_value bytea not null
 );
 
 create table settings
