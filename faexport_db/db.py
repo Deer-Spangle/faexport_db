@@ -2,6 +2,8 @@ import datetime
 import json
 from typing import Tuple, List, Any, Optional, Dict, Union
 
+import psycopg2
+
 UNSET = object()
 
 # TODO: remove these
@@ -36,25 +38,30 @@ class Database:
         self.conn = conn
 
     def select(self, query: str, args: Tuple) -> List[Any]:
-        cur = self.conn.cursor()
-        cur.execute(query, args)
-        result = cur.fetchall()
-        cur.close()
+        with self.conn.cursor() as cur:
+            cur.execute(query, args)
+            result = cur.fetchall()
         return result
 
     def insert(self, query: str, args: Tuple) -> List[Any]:
-        cur = self.conn.cursor()
-        cur.execute(query, args)
-        result = cur.fetchall()
-        self.conn.commit()
-        cur.close()
+        with self.conn.cursor() as cur:
+            try:
+                cur.execute(query, args)
+                result = cur.fetchall()
+                self.conn.commit()
+            except psycopg2.Error as e:
+                self.conn.rollback()
+                raise e
         return result
 
     def update(self, query: str, args: Tuple) -> None:
-        cur = self.conn.cursor()
-        cur.execute(query, args)
-        self.conn.commit()
-        cur.close()
+        with self.conn.cursor() as cur:
+            try:
+                cur.execute(query, args)
+                self.conn.commit()
+            except psycopg2.Error as e:
+                self.conn.rollback()
+                raise e
 
     def add_or_update_submission(
             self,
