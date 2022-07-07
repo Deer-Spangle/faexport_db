@@ -37,7 +37,6 @@ def import_submission_data(db: Database, submission_data: Dict) -> None:
         ordered_keywords=submission_data["keywords"],
         files=FileListUpdate([FileUpdate(
             submission_data["filename"],
-            add_hashes=FileHashListUpdate([FileHashUpdate("test", "abc123")])
         )])
     )
     submission = sub_update.save(db)
@@ -55,7 +54,6 @@ def scan_directory(db: Database, dir_path: str) -> None:
             # TODO: find timezone?
             tqdm.tqdm.write(f"Importing submission: {sub_id}")
             import_submission_data(db, submission)
-            return
 
 
 def setup_initial_data(db: Database) -> None:
