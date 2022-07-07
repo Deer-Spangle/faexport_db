@@ -1,6 +1,9 @@
 import datetime
 from typing import Optional, Dict, Any, List, Tuple
 
+from psycopg2 import errors
+from psycopg2.errorcodes import UNIQUE_VIOLATION
+
 from faexport_db.db import merge_dicts, Database, json_to_db, UNSET, unset_to_null
 
 
@@ -170,4 +173,13 @@ class UserUpdate:
             user.add_update(self)
             user.save(db)
             return user
-        return self.create_user(db)
+        try:
+            return self.create_user(db)
+        except errors.lookup(UNIQUE_VIOLATION):
+            user = User.from_database(db, self.website_id, self.site_user_id)
+            if user is None:
+                raise ValueError("User existed, and then disappeared")
+            user.add_update(self)
+            user.save(db)
+            return user
+

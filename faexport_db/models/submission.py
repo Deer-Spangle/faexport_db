@@ -2,6 +2,9 @@ from __future__ import annotations
 import datetime
 from typing import Optional, Dict, Any, List, TYPE_CHECKING
 
+from psycopg2 import errors
+from psycopg2.errorcodes import UNIQUE_VIOLATION
+
 from faexport_db.db import (
     merge_dicts,
     Database,
@@ -298,4 +301,12 @@ class SubmissionUpdate:
             submission.add_update(self)
             submission.save(db)
             return submission
-        return self.create_submission(db)
+        try:
+            return self.create_submission(db)
+        except errors.lookup(UNIQUE_VIOLATION):
+            submission = Submission.from_database(db, self.website_id, self.site_submission_id)
+            if submission is None:
+                raise ValueError("Submission existed, and then disappeared")
+            submission.add_update(self)
+            submission.save(db)
+            return submission
