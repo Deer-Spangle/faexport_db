@@ -27,7 +27,7 @@ DONE_SIGNAL = "DONE"
 
 
 def import_submission_data(db: Database, submission_data: Dict) -> Submission:
-    if submission_data["id"] == "641877":
+    if submission_data["id"] == 641877:
         submission_data["description"] = submission_data["description"].replace("\0", "/0")
     sub_update = SubmissionUpdate(
         SITE_ID,
