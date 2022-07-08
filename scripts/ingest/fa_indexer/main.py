@@ -5,7 +5,6 @@ import datetime
 import multiprocessing
 import multiprocessing.pool
 from multiprocessing import Queue, Process
-from pathlib import Path
 from queue import Empty
 from typing import Dict
 
@@ -110,7 +109,7 @@ def setup_initial_data(db: Database) -> None:
 
 
 if __name__ == "__main__":
-    config_path = Path(__file__).parent / "config.json"
+    config_path = "./config.json"
     with open(config_path, "r") as conf_file:
         config = json.load(conf_file)
     db_dsn = config["db_conn"]

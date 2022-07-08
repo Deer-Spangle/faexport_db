@@ -1,7 +1,6 @@
 import datetime
 import json
 import sqlite3
-from pathlib import Path
 
 import psycopg2
 import tqdm
@@ -47,7 +46,7 @@ def ingest_data(sqlite_db: sqlite3.Connection, db: Database) -> None:
 
 
 if __name__ == "__main__":
-    config_path = Path(__file__).parent / "config.json"
+    config_path = "./config.json"
     with open(config_path, "r") as conf_file:
         config = json.load(conf_file)
     db_dsn = config["db_conn"]
