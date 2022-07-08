@@ -8,6 +8,7 @@ I'm writing out this Readme because I got a bit lost on what this project is mea
 - I was thinking it would also be great to import other data dumps I have been given, from fa-indexer, findfurrypicbot and fuzzysearch and such.
 - Might be cool if other projects could push to it too, if it were generic enough for that.
 - I'm not sure whether FAExport would push in FAExport format, or reformat to push to this project. The former might be best.
+- Data dumps might not be ingested live from when they were scraped, so it seems important to be able to tell which value is the current one for a given submission, and maybe keep the old ones? (Old file data at least, see above)
 
 ## Data model
 - I figured it would be neat for this project to support multiple furry art sites.
@@ -19,7 +20,7 @@ I'm writing out this Readme because I got a bit lost on what this project is mea
 - Keywords on some websites (e621) are unordered and unique, while other websites (FA) allow non-unique keywords, and keep an order
   - I also included extra data on keywords, in case a keyword assigned to a submission might be allowed extra data? (Maybe datetime it was added? User-submitted vs artist-added? Or something)
 - When a file is updated, the hashes will be invalidated, but it seems useful to keep the old hashes, such that image matches can say they used to match a given submission?
-- Data dumps might not be ingested live from when they were scraped, so it seems important to be able to tell which value is the current one for a given submission, and maybe keep the old ones? (Old file data at least, see above)
+
 
 ## Potential uses
 - Maybe FASearchBot could use it when FA is down?
