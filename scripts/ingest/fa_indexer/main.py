@@ -19,7 +19,7 @@ from faexport_db.models.submission import SubmissionUpdate, Submission
 from faexport_db.models.user import UserUpdate
 from faexport_db.models.website import Website
 
-DATA_DIR = "./fa-indexer/"
+DATA_DIR = "./dump/fa-indexer/"
 SITE_ID = "fa"
 DATA_DATE = datetime.datetime(2019, 12, 4, 0, 0, 0, tzinfo=datetime.timezone.utc)
 

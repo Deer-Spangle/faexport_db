@@ -11,7 +11,7 @@ from faexport_db.models.file import FileListUpdate, FileUpdate, FileHashListUpda
 from faexport_db.models.submission import SubmissionUpdate, Submission
 from scripts.ingest.fa_indexer.main import setup_initial_data
 
-DB_LOCATION = "./findfurrypicbot/fa_bin/fa_bin.sqlite3"
+DB_LOCATION = "./dump/findfurrypicbot/fa_bin/fa_bin.sqlite3"
 SITE_ID = "fa"
 DATA_DATE = datetime.datetime(2020, 1, 9, 0, 0, 0, tzinfo=datetime.timezone.utc)
 
