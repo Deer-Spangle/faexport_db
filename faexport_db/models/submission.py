@@ -310,3 +310,6 @@ class SubmissionUpdate:
             submission.add_update(self)
             submission.save(db)
             return submission
+        except Exception as e:
+            print(f"Failed to create submission: {self.site_submission_id}")
+            raise e
