@@ -1,0 +1,9 @@
+---
+version: "3.2"
+services:
+  dns_health:
+    image: "ghcr.io/deer-spangle/faexport_db:latest"
+    ports:
+      - "5000:5000"
+    environment:
+      - DSN="postgresql://user:password@host/faexport"
