@@ -10,12 +10,10 @@ create table websites
 create unique index websites_website_id_uindex
     on websites (website_id);
 
-insert into websites (website_id, full_name, link) VALUES ('fa', 'Fur Affinity', 'https://furaffinity.net');
-
-create table users
+create table user_snapshots
 (
     -- Keys
-    user_id          serial
+    user_snapshot_id          serial
         constraint users_pk
             primary key,
     website_id       text not null
@@ -23,22 +21,19 @@ create table users
             references websites,
     site_user_id     text not null,
     -- Scraper information
-    is_deleted       boolean not null,
-    first_scanned timestamp with time zone not null,
-    latest_update timestamp with time zone not null,
+    scan_datetime timestamp with time zone not null,
+    ingest_datetime timestamp with time zone not null,
     -- Type specific data
+    is_deleted       boolean not null,
     display_name     text,
     -- Site specific data
     extra_data       json
 );
 
-create unique index users_website_id_site_user_id_uindex
-    on users (website_id, site_user_id);
-
-create table submissions
+create table submission_snapshots
 (
     -- Keys
-    submission_id    serial
+    submission_snapshot_id    serial
         constraint submissions_pk
             primary key,
     website_id       text    not null
@@ -46,13 +41,11 @@ create table submissions
             references websites,
     site_submission_id    text    not null,
     -- Scraper information
-    is_deleted       boolean not null,
-    first_scanned timestamp with time zone not null,
-    latest_update timestamp with time zone not null,
+    scan_datetime timestamp with time zone not null,
+    ingest_datetime timestamp with time zone not null,
     -- Type specific data
-    uploader_id      int
-        constraint submissions_users_user_id_fk
-            references users,
+    uploader_site_user_id text,
+    is_deleted       boolean not null,
     title            text,
     description      text,
     datetime_posted  timestamp with time zone,
@@ -60,46 +53,36 @@ create table submissions
     extra_data       json
 );
 
-create unique index submissions_website_id_site_submission_id_uindex
-    on submissions (website_id, site_submission_id);
-
-create table submission_keywords
+create table submission_snapshot_keywords
 (
     -- Keys
     keyword_id       serial
         constraint submission_keywords_pk
             primary key,
-    submission_id    int not null
-        constraint submission_keywords_submissions_submission_id_fk
-            references submissions,
+    submission_snapshot_id    int not null
+        constraint submission_snapshot_keywords_submission_id_fk
+            references submission_snapshots,
     -- Type specific data
     keyword          text not null,
-    ordinal            int
+    ordinal          int
 );
 
-create table files
+create table submission_snapshot_files
 (
     -- Keys
     file_id          serial
         constraint files_pk
             primary key,
-    submission_id    int not null
-        constraint files_submissions_submission_id_fk
-            references submissions,
+    submission_snapshot_id    int not null
+        constraint submission_snapshot_files_submission_id_fk
+            references submission_snapshots,
     site_file_id     text,
-    -- Scraper information
-    is_current    bool not null,
-    first_scanned timestamp with time zone not null,
-    latest_update timestamp with time zone not null,
     -- Type specific data
     file_url         text,
     file_size        int,
     -- Site specific data
-    extra_data    json
+    extra_data      json
 );
-
-create unique index files_submission_id_site_file_id_uindex
-    on files (submission_id, site_file_id) where is_current;
 
 create table hash_algos
 (
@@ -110,23 +93,16 @@ create table hash_algos
     algorithm_name text not null
 );
 
-insert into hash_algos (algo_id, language, algorithm_name) VALUES ('python:ahash', 'python', 'ahash');
-insert into hash_algos (algo_id, language, algorithm_name) VALUES ('python:dhash', 'python', 'dhash');
-insert into hash_algos (algo_id, language, algorithm_name) VALUES ('python:phash', 'python', 'phash');
-insert into hash_algos (algo_id, language, algorithm_name) VALUES ('python:whash', 'python', 'whash');
-insert into hash_algos (algo_id, language, algorithm_name) VALUES ('sha256', 'any', 'sha256');
-insert into hash_algos (algo_id, language, algorithm_name) VALUES ('rust:dhash', 'rust', 'dhash');
-
-create table file_hashes
+create table submission_snapshot_file_hashes
 (
     hash_id    serial
         constraint file_hashes_pk
             primary key,
     file_id    int not null
-        constraint file_hashes_files_file_id_fk
-            references files,
+        constraint submission_snapshot_file_hashes_file_id_fk
+            references submission_snapshot_files,
     algo_id    text not null
-        constraint file_hashes_hash_algos_algo_id_fk
+        constraint submission_snapshot_file_hashes_algo_id_fk
             references hash_algos,
     hash_value bytea not null
 );
@@ -139,4 +115,4 @@ create table settings
     setting_value       text
 );
 
-insert into settings (setting_id, setting_value) values ('version', '0.1.0');
+insert into settings (setting_id, setting_value) values ('version', '0.2.0');
