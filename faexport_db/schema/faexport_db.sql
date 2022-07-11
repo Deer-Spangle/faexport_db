@@ -10,6 +10,17 @@ create table websites
 create unique index websites_website_id_uindex
     on websites (website_id);
 
+create table archive_contributor
+(
+    contributor_id int not null
+        constraint archive_contributor_pk
+            primary key,
+    name            text not null
+);
+
+create unique index archive_contributor_id_uindex
+    on archive_contributor (name);
+
 create table user_snapshots
 (
     -- Keys
@@ -22,6 +33,9 @@ create table user_snapshots
     site_user_id     text not null,
     -- Scraper information
     scan_datetime timestamp with time zone not null,
+    archive_contributor_id   int not null
+        constraint users_contributor_id_fk
+            references archive_contributor,
     ingest_datetime timestamp with time zone not null,
     -- Type specific data
     is_deleted       boolean not null,
@@ -29,6 +43,9 @@ create table user_snapshots
     -- Site specific data
     extra_data       json
 );
+
+create unique index user_snapshots_uindex
+    on user_snapshots (website_id, site_user_id, scan_datetime, archive_contributor_id);
 
 create table submission_snapshots
 (
@@ -42,6 +59,9 @@ create table submission_snapshots
     site_submission_id    text    not null,
     -- Scraper information
     scan_datetime timestamp with time zone not null,
+    archive_contributor_id   int not null
+        constraint submission_contributor_id_fk
+            references archive_contributor,
     ingest_datetime timestamp with time zone not null,
     -- Type specific data
     uploader_site_user_id text,
@@ -52,6 +72,9 @@ create table submission_snapshots
     -- Site specific data
     extra_data       json
 );
+
+create unique index submission_snapshots_uindex
+    on submission_snapshots (website_id, site_submission_id, scan_datetime, archive_contributor_id);
 
 create table submission_snapshot_keywords
 (
@@ -93,6 +116,9 @@ create table hash_algos
     algorithm_name text not null
 );
 
+create unique index hash_algos_uindex
+    on hash_algos (language, algorithm_name);
+
 create table submission_snapshot_file_hashes
 (
     hash_id    serial
@@ -115,4 +141,4 @@ create table settings
     setting_value       text
 );
 
-insert into settings (setting_id, setting_value) values ('version', '0.2.0');
+insert into settings (setting_id, setting_value) values ('version', '0.2.1');
