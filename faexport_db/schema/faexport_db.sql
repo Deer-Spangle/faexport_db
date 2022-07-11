@@ -10,16 +10,16 @@ create table websites
 create unique index websites_website_id_uindex
     on websites (website_id);
 
-create table archive_contributor
+create table archive_contributors
 (
     contributor_id int not null
-        constraint archive_contributor_pk
+        constraint archive_contributors_pk
             primary key,
     name            text not null
 );
 
-create unique index archive_contributor_id_uindex
-    on archive_contributor (name);
+create unique index archive_contributors_uindex
+    on archive_contributors (name);
 
 create table user_snapshots
 (
@@ -35,7 +35,7 @@ create table user_snapshots
     scan_datetime timestamp with time zone not null,
     archive_contributor_id   int not null
         constraint users_contributor_id_fk
-            references archive_contributor,
+            references archive_contributors,
     ingest_datetime timestamp with time zone not null,
     -- Type specific data
     is_deleted       boolean not null,
@@ -61,7 +61,7 @@ create table submission_snapshots
     scan_datetime timestamp with time zone not null,
     archive_contributor_id   int not null
         constraint submission_contributor_id_fk
-            references archive_contributor,
+            references archive_contributors,
     ingest_datetime timestamp with time zone not null,
     -- Type specific data
     uploader_site_user_id text,
