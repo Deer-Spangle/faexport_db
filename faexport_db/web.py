@@ -1,4 +1,5 @@
 from faexport_db.models.file import HashAlgo
+from faexport_db.models.website import Website
 from flask import Flask
 
 app = Flask(__name__)
@@ -27,6 +28,23 @@ def view_submission(website_id: str, submission_id: str):
     return {
         "error": None,
         "data": submission.to_web_json()
+    }
+
+@app.route("/api/view/users/<website_id>/<user_id>.json")
+def view_user(website_id: str, user_id: str):
+    website = Website.from_database(db, website_id)
+    if not website:
+        return {
+            "error": f"Website does not exist by ID: {website_id}"
+        }
+    user = User.from_database(db, website_id)
+    if not user:
+        return {
+            "error": f"There is no entry for submission with the ID {submission_id} on {website.full_name}"
+        }
+    return {
+        "error": None,
+        "data": user.to_web_json()
     }
 
 @app.route("/api/websites.json")

@@ -46,6 +46,22 @@ class User:
             if snapshot.extra_data is not None:
                 extra_data = merge_dicts(extra_data, snapshot.extra_data)
         return extra_data
+    
+    def to_web_json(self) -> Dict:
+        return {
+            "website_id": self.website_id,
+            "site_user_id": self.site_user_id,
+            "cache_info": {
+                "snapshot_count": len(self.snapshots),
+                "is_deleted": self.is_deleted,
+                "first_scanned": self.first_scanned,
+                "latest_update": self.latest_update,
+            },
+            "user_info": {
+                "display_name": self.display_name,
+                "extra_data": self.extra_data,
+            }
+        }
 
     @classmethod
     def from_database(
