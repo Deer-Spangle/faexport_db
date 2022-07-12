@@ -16,6 +16,12 @@ class SubmissionKeyword:
         self.submission_snapshot_id = submission_snapshot_id
         self.keyword_id = keyword_id
         self.ordinal = ordinal
+    
+    def to_web_json(self) -> Dict:
+        return {
+            "keyword": self.keyword,
+            "ordinal": self.ordinal
+        }
 
     def create_snapshot(self, db: "Database") -> None:
         keyword_rows = db.insert(

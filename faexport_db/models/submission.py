@@ -81,7 +81,10 @@ class Submission:
     def keywords(self) -> List[SubmissionKeyword]:
         for snapshot in self.sorted_snapshots:
             if snapshot.keywords_recorded:
-                return snapshot.keywords
+                return sorted(
+                    snapshot.keywords,
+                    key=lambda keyword: (keyword.ordinal, keyword.keyword)
+                )
         return []
     
     @property
@@ -100,6 +103,27 @@ class Submission:
                     continue
                 current_file.add_update(file)
         return files
+
+    def to_web_json(self) -> Dict:
+        return {
+            "website_id": self.website_id,
+            "site_submission_id": self.site_submission_id,
+            "cache_info": {
+                "snapshot_count": len(self.snapshots),
+                "is_deleted": self.is_deleted,
+                "first_scanned": self.first_scanned,
+                "latest_update": self.latest_update,
+            },
+            "submission_info": {
+                "uploader_site_user_id": self.uploader_site_user_id,
+                "title": self.title,
+                "description": self.description,
+                "datetime_posted": self.datetime_posted.isoformat() if self.datetime is not None else None,
+                "extra_data": self.extra_data,
+                "keywords": [keyword.to_web_json() for keyword in self.keywords],
+                "files": [file.to_web_json() for file in self.files.values()],
+            }
+        }
 
     @classmethod
     def from_database(

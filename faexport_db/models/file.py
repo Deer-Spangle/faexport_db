@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Optional, Dict, Any, List
 import datetime
+import base64
 
 from faexport_db.db import Database, merge_dicts, json_to_db
 
@@ -28,6 +29,14 @@ class File:
     @property
     def hash_map_by_algo(self) -> Dict[int, FileHash]:
         return {file_hash.algo_id: file_hash for file_hash in self.hashes}
+
+    def to_web_json(self) -> Dict:
+        return {
+            "file_url": self.file_url,
+            "file_size": self.file_size,
+            "extra_data": self.extra_data,
+            "file_hashes": [file_hash.to_web_json() for file_hash in self.hashes],
+        }
 
     def is_clashing(self, update: File) -> bool:
         if update.file_url is not None and self.file_url is not None and self.file_url != update.file_url:
@@ -106,6 +115,12 @@ class FileHash:
         self.hash_value = hash_value
         self.file_id = file_id
         self.hash_id = hash_id
+    
+    def to_web_json(self) -> Dict:
+        return {
+            "algo_id": self.algo_id,
+            "hash_value": base64.b64encode(self.hash_value).decode(),
+        }
 
     def create_snapshot(self, db: Database) -> None:
         hash_rows = db.insert(
