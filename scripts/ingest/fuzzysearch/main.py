@@ -9,7 +9,6 @@ import dateutil.parser
 from faexport_db.models.archive_contributor import ArchiveContributor
 import tqdm
 
-from faexport_db.db import UNSET
 from faexport_db.models.file import FileListUpdate, FileUpdate, FileHashListUpdate, FileHashUpdate
 from faexport_db.models.submission import Submission, SubmissionSnapshot, SubmissionUpdate
 from faexport_db.models.user import UserSnapshot, UserUpdate
@@ -51,7 +50,6 @@ def import_row(row: Dict[str, str]) -> Submission:
     site, submission_id, artists, hash_value, posted_at, updated_at, sha256, deleted, content_url = row
     site_config = SITE_CONFIG[site]
     website_id = site_config.website.website_id
-    uploader = UNSET
     uploader_username = None
     if site_config.ingest_artist:
         # TODO: Weasyl username lookup won't be this easy
