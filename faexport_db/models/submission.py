@@ -202,7 +202,7 @@ class SubmissionSnapshot:
         self.contributor = contributor
         self.scan_datetime = scan_datetime
         self.submission_snapshot_id = submission_snapshot_id
-        self.ingest_datetime = ingest_datetime
+        self.ingest_datetime = ingest_datetime or datetime.datetime.now(datetime.timezone.utc)
         self.uploader_site_user_id = uploader_site_user_id
         self.is_deleted = is_deleted
         self.title = title
