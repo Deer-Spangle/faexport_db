@@ -12,7 +12,7 @@ create unique index websites_website_id_uindex
 
 create table archive_contributors
 (
-    contributor_id int not null
+    contributor_id serial
         constraint archive_contributors_pk
             primary key,
     name            text not null
@@ -128,7 +128,7 @@ create table submission_snapshot_file_hashes
     file_id    int not null
         constraint submission_snapshot_file_hashes_file_id_fk
             references submission_snapshot_files,
-    algo_id    text not null
+    algo_id    int not null
         constraint submission_snapshot_file_hashes_algo_id_fk
             references hash_algos,
     hash_value bytea not null
