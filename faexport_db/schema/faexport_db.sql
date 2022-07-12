@@ -69,6 +69,7 @@ create table submission_snapshots
     title            text,
     description      text,
     datetime_posted  timestamp with time zone,
+    keywords_recorded boolean not null,
     -- Site specific data
     extra_data       json
 );

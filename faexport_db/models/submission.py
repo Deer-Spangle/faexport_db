@@ -85,9 +85,8 @@ class Submission:
     
     @property
     def keywords(self) -> List[SubmissionKeyword]:
-        # TODO: How do we indicate that a snapshot has an empty list of keywords? What if a submission used to have keywords, and now has none.
         for snapshot in self.sorted_snapshots:
-            if snapshot.keywords:
+            if snapshot.keywords_recorded:
                 return snapshot.keywords
         return []
 
@@ -176,7 +175,7 @@ class SubmissionSnapshot:
         self.description = description
         self.datetime_posted = datetime_posted
         self.extra_data = extra_data
-        self.keywords = keywords
+        self.keywords: Optional[List[SubmissionKeyword]] = keywords
         if ordered_keywords is not None:
             self.keywords = [
                 SubmissionKeyword(keyword, ordinal=ordinal) for ordinal, keyword in enumerate(ordered_keywords)
@@ -185,15 +184,19 @@ class SubmissionSnapshot:
             self.keywords = [
                 SubmissionKeyword(keyword) for keyword in unordered_keywords
             ]
-        self.files = files
+        self.files: Optional[List[File]] = files
+    
+    @property
+    def keywords_recorded(self) -> bool:
+        return self.keywords is not None
 
     def create_snapshot(self, db: "Database") -> None:
         snapshot_rows = db.insert(
             "WITH e AS ("
             "INSERT INTO submission_snapshots "
             "(website_id, site_submission_id, scan_datetime, archive_contributor_id, ingest_datetime, "
-            "uploader_site_user_id, is_deleted, title, description, datetime_posted, extra_data) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            "uploader_site_user_id, is_deleted, title, description, datetime_posted, keywords_recorded, extra_data) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
             "ON CONFLICT (website_id, site_submission_id, scan_datetime, archive_contributor_id) DO NOTHING "
             "RETURNING submission_snapshot_id "
             ") SELECT * FROM e "
@@ -202,17 +205,19 @@ class SubmissionSnapshot:
             (
                 self.website_id, self.site_submission_id, self.scan_datetime, self.contributor.contributor_id,
                 self.ingest_datetime, self.uploader_site_user_id, self.is_deleted, self.title, self.description,
-                self.datetime_posted, json_to_db(self.extra_data),
+                self.datetime_posted, self.keywords_recorded, json_to_db(self.extra_data),
                 self.website_id, self.site_submission_id, self.scan_datetime, self.contributor.contributor_id
             )
         )
         self.submission_snapshot_id = snapshot_rows[0][0]
         # Save keywords
-        for keyword in self.keywords:
-            keyword.save(db, self.submission_snapshot_id)
+        if self.keywords is not None:
+            for keyword in self.keywords:
+                keyword.save(db, self.submission_snapshot_id)
         # Save files
-        for file in self.files:
-            file.save(db, self.submission_snapshot_id)
+        if self.files is not None:
+            for file in self.files:
+                file.save(db, self.submission_snapshot_id)
 
     def save(self, db: "Database") -> None:
         if self.submission_snapshot_id is None:
