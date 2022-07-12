@@ -1,4 +1,5 @@
 from __future__ import annotations
+from os import truncate
 from typing import Optional, Dict, Any, List
 import datetime
 
@@ -24,15 +25,34 @@ class File:
         self.file_size = file_size
         self.extra_data = extra_data
         self.hashes = hashes or []
+    
+    @property
+    def hash_map_by_algo(self) -> Dict[str, FileHash]:
+        return {file_hash.algo_id: file_hash for file_hash in self.hashes}
 
-    def is_clashing(self, update: FileUpdate) -> bool:
-        if update.file_url is not UNSET and self.file_url is not None and self.file_url != update.file_url:
+    def is_clashing(self, update: File) -> bool:
+        if update.file_url is not None and self.file_url is not None and self.file_url != update.file_url:
             return True
-        if update.file_size is not UNSET and self.file_size is not None and self.file_size != update.file_size:
+        if update.file_size is not None and self.file_size is not None and self.file_size != update.file_size:
             return True
-        if update.add_hashes is not UNSET and self.hashes.is_clashing(update.add_hashes):
-            return True
+        # Check hashes do not conflict
+        my_hash_ids = set(self.hash_map_by_algo.keys())
+        update_hash_ids = set(update.hash_map_by_algo.keys())
+        hash_overlap = my_hash_ids.intersection(update_hash_ids)
+        for algo_id in hash_overlap:
+            if self.hash_map_by_algo[algo_id].hash_value != update.hash_map_by_algo[algo_id].hash_value:
+                return True
+        # We don't check extra_data, as that is assumed mutable.
         return False
+    
+    def add_update(self, update: File) -> None:
+        # Don't update file_url or file_size, as they are immutable
+        self.extra_data = merge_dicts(self.extra_data, update.extra_data)
+        # Add any new file hashes
+        my_hash_map = self.hash_map_by_algo
+        for file_hash in update.hashes:
+            if file_hash.algo_id not in my_hash_map:
+                self.hashes.append(file_hash)
 
     def create_snapshot(self, db: "Database") -> None:
         file_rows = db.insert(

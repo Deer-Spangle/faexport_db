@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 
 
 class Submission:
-    # TODO: re-implement to work from snapshots
     def __init__(
         self,
         website_id: str,
@@ -28,8 +27,6 @@ class Submission:
         self.website_id = website_id
         self.site_submission_id = site_submission_id
         self.snapshots = snapshots
-        # TODO: Convert to properties
-        self.files = files
     
     @property
     def sorted_snapshots(self) -> List[SubmissionSnapshot]:
@@ -89,6 +86,23 @@ class Submission:
             if snapshot.keywords_recorded:
                 return snapshot.keywords
         return []
+    
+    @property
+    def files(self) -> Dict[Optional[str], File]:
+        files = {}
+        for snapshot in self.sorted_snapshots[::-1]:
+            if snapshot.files is None:
+                continue
+            for file in snapshot.files:
+                current_file = files.get(file.site_file_id)
+                if current_file is None:
+                    files[file.site_file_id] = file
+                    continue
+                if current_file.is_clashing(file):
+                    files[file.site_file_id] = file
+                    continue
+                current_file.add_update(file)
+        return files
 
     @classmethod
     def from_database(
