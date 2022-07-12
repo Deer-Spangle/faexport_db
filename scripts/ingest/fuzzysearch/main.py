@@ -6,16 +6,18 @@ import string
 from typing import Dict, Callable
 
 import dateutil.parser
+from faexport_db.models.archive_contributor import ArchiveContributor
 import tqdm
 
 from faexport_db.db import UNSET
 from faexport_db.models.file import FileListUpdate, FileUpdate, FileHashListUpdate, FileHashUpdate
-from faexport_db.models.submission import Submission, SubmissionUpdate
-from faexport_db.models.user import UserUpdate
+from faexport_db.models.submission import Submission, SubmissionSnapshot, SubmissionUpdate
+from faexport_db.models.user import UserSnapshot, UserUpdate
 from faexport_db.models.website import Website
 
 FUZZYSEARCH_FILE = "./dump/fuzzysearch/fuzzysearch-dumps.csv"
 DATA_DATE = datetime.datetime(2022, 6, 22, 0, 0, 0, 0, datetime.timezone.utc)
+CONTRIBUTOR = ArchiveContributor("FuzzySearch data ingest")
 
 
 @dataclasses.dataclass
@@ -48,44 +50,56 @@ def import_row(row: Dict[str, str]) -> Submission:
     site_config = SITE_CONFIG[site]
     website_id = site_config.website.website_id
     uploader = UNSET
+    uploader_username = None
     if site_config.ingest_artist:
-        # TODO: check for other odd characters
-        uploader = UserUpdate(website_id, site_config.username_transform(artists), display_name=artists)
-    ingest_date = DATA_DATE
+        # TODO: Weasyl username lookup won't be this easy
+        uploader = UserSnapshot(
+            website_id,
+            site_config.username_transform(artists),
+            display_name=artists
+        )
+        uploader.save(db)
+        uploader_username = uploader.site_user_id
+    ingest_date = DATA_DATE  # TODO: That doesn't seem right, it should be the lowest value, not newest
     if updated_at:
         ingest_date = dateutil.parser.parse(updated_at)
 
     dhash_bytes = int(hash_value).to_bytes(8, byteorder='big')
     hashes = [
-        FileHashUpdate("rust:dhash", dhash_bytes)
+        FileHash("rust:dhash", dhash_bytes)
     ]
     if sha256:
         sha_bytes = base64.b64decode(sha256.encode('ascii'))
-        hashes.append(FileHashUpdate("sha256", sha_bytes))
+        hashes.append(FileHash("sha256", sha_bytes))
 
-    update = SubmissionUpdate(
+    update = SubmissionSnapshot(
         website_id,
         submission_id,
-        update_time=ingest_date,
+        CONTRIBUTOR,
+        ingest_date,
+
+        uploader_site_user_id=uploader_username,
         is_deleted=(deleted == "true"),
-        uploader_update=uploader,
         datetime_posted=dateutil.parser.parse(posted_at),
-        files=FileListUpdate([
-            FileUpdate(
-                content_url,
-                add_hashes=FileHashListUpdate(hashes)
+        files=[
+            File(
+                None,
+                file_url=content_url,
+                hashes=hashes,
             )
-        ])
+        ]
     )
-    print(row)
-    print(site)
+    update.save(db)
+    return update
 
 
 fa_allowed_chars = set(string.ascii_lowercase + string.digits + "-_.~[]^`")
 weasyl_allowed_chars = set(string.ascii_letters + string.digits + " -_.'@&!~|`")
 weasyl_transform = lambda name: "".join([char for char in name if char in string.ascii_letters + string.digits])
-# TODO: Oh no. Weasyl usernames don't do this. "Mr.Pink" -> "pinkpalooka"
-# Need to do an additional lookup, fetching the user page and stuff to get the real username
+# TODO: Oh no. Weasyl usernames don't always do this. "Mr.Pink" -> "pinkpalooka"
+# Need to do an additional lookup, fetching the user page and stuff to get the real username.
+# Sometimes, the username won't exist anymore. In that case, we need to lookup the submission
+
 
 
 def csv_row_count() -> int:
@@ -123,4 +137,5 @@ def ingest_csv() -> None:
 if __name__ == "__main__":
     # TODO: connect to database
     # TODO: Create websites from SITE_MAP
+    # TODO: Save contributor
     ingest_csv()

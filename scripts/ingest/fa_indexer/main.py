@@ -10,43 +10,54 @@ from typing import Dict
 
 import psycopg2
 import dateutil.parser
+from faexport_db.models.archive_contributor import ArchiveContributor
 import tqdm
 
 from faexport_db.db import Database
 from faexport_db.models.file import FileUpdate, FileListUpdate
-from faexport_db.models.submission import SubmissionUpdate, Submission
+from faexport_db.models.submission import SubmissionSnapshot, SubmissionUpdate, Submission
 from faexport_db.models.user import UserUpdate
 from faexport_db.models.website import Website
 
 DATA_DIR = "./dump/fa-indexer/"
 SITE_ID = "fa"
 DATA_DATE = datetime.datetime(2019, 12, 4, 0, 0, 0, tzinfo=datetime.timezone.utc)
+CONTRIBUTOR = ArchiveContributor("fa-indexer data ingest")
 
 DONE_SIGNAL = "DONE"
 
 
-def import_submission_data(db: Database, submission_data: Dict) -> Submission:
+def import_submission_data(db: Database, submission_data: Dict) -> SubmissionSnapshot:
     if submission_data["id"] == 641877:
         submission_data["description"] = submission_data["description"].replace("\0", "/0")
-    sub_update = SubmissionUpdate(
+    uploader_username = submission_data["username"]
+    user_snapshot = UserSnapshot(
+        SITE_ID,
+        uploader_username,
+        CONTRIBUTOR,
+        DATA_DATE
+    )
+    user_snapshot.save(db)
+    snapshot = SubmissionSnapshot(
         SITE_ID,
         str(submission_data["id"]),
+        CONTRIBUTOR,
         DATA_DATE,
-        False,
-        uploader_update=UserUpdate(
-            SITE_ID, submission_data["username"]
-        ),
+        uploader_site_user_id=uploader_username,
         title=submission_data["title"],
         description=submission_data["description"],
         datetime_posted=dateutil.parser.parse(submission_data["date"]),
-        add_extra_data={"rating": submission_data["rating"]},
+        extra_data={"rating": submission_data["rating"]},
         ordered_keywords=submission_data["keywords"],
-        files=FileListUpdate([FileUpdate(
-            submission_data["filename"],
-        )])
+        files=[
+            File(
+                None,
+                file_url=submission_data["filename"],
+            )
+        ]
     )
-    submission = sub_update.save(db)
-    return submission
+    snapshot.save(db)
+    return snapshot
 
 
 class Processor:
@@ -70,8 +81,8 @@ class Processor:
             # print(f"Importing submission: {submission_data['id']} in worker {self.num}")
             if submission_data == DONE_SIGNAL:
                 break
-            submission = import_submission_data(db, submission_data)
-            self.resp_queue.put(submission.site_submission_id)
+            snapshot = import_submission_data(db, submission_data)
+            self.resp_queue.put(snapshot.site_submission_id)
 
 
 def scan_directory(dsn: str, dir_path: str) -> None:
@@ -103,9 +114,10 @@ def scan_directory(dsn: str, dir_path: str) -> None:
         process.join()
 
 
-def setup_initial_data(db: Database) -> None:
+def setup_initial_data(db: Database, contributor: ArchiveContributor) -> None:
     website = Website(SITE_ID, "Fur Affinity", "https://furaffinity.net")
     website.save(db)
+    contributor.save(db)
 
 
 if __name__ == "__main__":
@@ -115,5 +127,5 @@ if __name__ == "__main__":
     db_dsn = config["db_conn"]
     db_conn = psycopg2.connect(db_dsn)
     db_obj = Database(db_conn)
-    setup_initial_data(db_obj)
+    setup_initial_data(db_obj, CONTRIBUTOR)
     scan_directory(db_dsn, DATA_DIR)
