@@ -2,16 +2,21 @@ import base64
 import csv
 import dataclasses
 import datetime
+import json
 import string
 from typing import Dict, Callable
 
 import dateutil.parser
+import psycopg2
+import requests
+
+from faexport_db.db import Database
 from faexport_db.models.archive_contributor import ArchiveContributor
 import tqdm
 
-from faexport_db.models.file import FileListUpdate, FileUpdate, FileHashListUpdate, FileHashUpdate
-from faexport_db.models.submission import Submission, SubmissionSnapshot, SubmissionUpdate
-from faexport_db.models.user import UserSnapshot, UserUpdate
+from faexport_db.models.file import FileHash, HashAlgo, File
+from faexport_db.models.submission import SubmissionSnapshot
+from faexport_db.models.user import UserSnapshot
 from faexport_db.models.website import Website
 
 FUZZYSEARCH_FILE = "./dump/fuzzysearch/fuzzysearch-dumps.csv"
@@ -55,7 +60,7 @@ def get_weasyl_username(display_name: str, submission_id: str, db: Database) -> 
     try:
         # Check display name on guessed user page
         resp = requests.get(f"https://weasyl.com/~{username_guess}")
-        body = resp.content
+        body = resp.content.decode("utf-8")
         site_display_name = body.split("<title>")[1].split("’s profile — Weasyl</title>")[0]
         # If display name is correct on page, return username from page
         if display_name == site_display_name:
@@ -67,7 +72,7 @@ def get_weasyl_username(display_name: str, submission_id: str, db: Database) -> 
     # Else, get submission page, and get username and display name from there
     submission_url = f"https://weasyl.com/~username/submissions/{submission_id}/"
     resp = requests.get(submission_url)
-    body = resp.content
+    body = resp.content.decode("utf-8")
     site_user_tag = body.split("<div id=\"db-user\">")[1].split("<a class=\"username\" href=\"/~")[1].split("</a>")[0]
     site_username, site_display_name = site_user_tag.split("\">")
     WEASYL_LOOKUP[display_name] = site_username
@@ -82,7 +87,7 @@ def get_weasyl_username(display_name: str, submission_id: str, db: Database) -> 
     return site_username
 
 
-def import_row(row: Dict[str, str], db: Database) -> Submission:
+def import_row(row: Dict[str, str], db: Database) -> SubmissionSnapshot:
     site, submission_id, artists, hash_value, posted_at, updated_at, sha256, deleted, content_url = row
     site_config = SITE_CONFIG[site]
     website_id = site_config.website.website_id
@@ -139,7 +144,7 @@ def csv_row_count() -> int:
         return sum(1 for _ in tqdm.tqdm(reader))
 
 
-def check_csv(db: Database) -> None:
+def check_csv() -> None:
     fa_allowed_chars = set(string.ascii_lowercase + string.digits + "-_.~[]^`")
     weasyl_allowed_chars = set(string.ascii_letters + string.digits + " -_.'@&!~|`")
     sites = set()
@@ -196,5 +201,5 @@ if __name__ == "__main__":
     SHA_HASH.save(db_obj)
     DHASH.save(db_obj)
     # Import data
-    check_csv(db_obj)
+    check_csv()
     # ingest_csv(db_obj)
