@@ -15,7 +15,7 @@ class File:
             file_url: Optional[str] = None,
             file_size: Optional[int] = None,
             extra_data: Optional[Dict[str, Any]] = None,
-            hashes: FileHashList = None,
+            hashes: List[FileHash] = None,
     ):
         self.file_id = file_id
         self.site_file_id = site_file_id
@@ -47,7 +47,31 @@ class File:
         self.submission_snapshot_id = submission_snapshot_id
         if self.file_id is not None:
             self.create_snapshot(db)
-        self.hashes.save(db, self.file_id)
+        for file_hash in self.hashes:
+            file_hash.save(db, self.file_id)
+
+    @classmethod
+    def list_for_submission_snapshot(db: Database, submission_snapshot_id: int) -> List["File"]:
+        file_rows = db.select(
+            "SELECT file_id, site_file_id, file_url, file_size, extra_data "
+            "FROM submission_snapshot_files "
+            "WHERE submission_snapshot_id = %s",
+            (submission_snapshot_id,)
+        )
+        files = []
+        for file_row in file_rows:
+            file_id, site_file_id, file_url, file_size, extra_data = file_row
+            hashes = FileHash.list_for_file(db, file_id)
+            files.append(File(
+                file_id,
+                site_file_id,
+                submission_snapshot_id=submission_snapshot_id,
+                file_url=file_url,
+                file_size=file_size,
+                extra_data=extra_data,
+                hashes=hashes,
+            ))
+        return files
 
 
 class FileUpdate:
@@ -221,6 +245,25 @@ class FileHash:
         self.file_id = file_id
         if self.hash_id is None:
             self.create_snapshot(db)
+    
+    @classmethod
+    def list_for_file(db: Database, file_id: int) -> List["FileHash"]:
+        hash_rows = db.select(
+            "SELECT hash_id, algo_id, hash_value "
+            "FROM submission_snapshot_file_hashes "
+            "WHERE file_id = %s",
+            (file_id,)
+        )
+        hashes = []
+        for hash_row in hash_rows:
+            hash_id, algo_id, hash_value = hash_row
+            hashes.append(FileHash(
+                algo_id,
+                hash_value,
+                file_id=file_id,
+                hash_id=hash_id,
+            ))
+        return hashes
 
 
 class FileHashUpdate:

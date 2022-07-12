@@ -66,7 +66,8 @@ class Submission:
                 contributors[contributor_id] = contributor
             # Load keywords
             keywords = SubmissionKeyword.list_for_submission_snapshot(db, submission_snapshot_id)
-            # TODO: Load files
+            # Load files
+            files = File.list_for_submission_snapshot(db, submission_snapshot_id)
             snapshots.append(SubmissionSnapshot(
                 website_id,
                 site_submission_id,
@@ -80,7 +81,8 @@ class Submission:
                 description=description,
                 datetime_posted=datetime_posted,
                 extra_data=extra_data,
-                keywords=keywords
+                keywords=keywords,
+                files=files,
             ))
         if not snapshots:
             return None
