@@ -9,8 +9,8 @@ class ArchiveContributor:
 
     def save(self, db: Database) -> None:
         if self.contributor_id is None:
-            self.contributor_id = db.insert(
+            contributor_rows = db.insert(
                 "INSERT INTO archive_contributor (name) VALUES (%s) RETURNING contributor_id",
                 (self.name,)
             )
-            return
+            self.contributor_id = contributor_rows[0][0]
