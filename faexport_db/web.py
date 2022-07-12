@@ -47,6 +47,26 @@ def view_user(website_id: str, user_id: str):
         "data": user.to_web_json()
     }
 
+@app.route("/api/view/users/<website_id>.json")
+def list_users(website_id: str):
+    website = Website.from_database(db, website_id)
+    if not website:
+        return {
+            "error": f"Website does not exist by ID: {website_id}"
+        }
+    user_rows = db.select(
+        "SELECT DISTINCT site_user_id FROM user_snapshots WHERE website_id = %s",
+        (website.website_id,)
+    )
+    user_ids = [user_row[0] for user_row in user_rows]
+    return {
+        "error": None,
+        "data": {
+            "user_ids": user_ids
+        }
+    }
+
+
 @app.route("/api/websites.json")
 def list_websites() -> Dict:
     websites = Website.list_all(db)
