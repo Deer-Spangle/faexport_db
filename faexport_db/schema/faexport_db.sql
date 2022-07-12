@@ -108,6 +108,9 @@ create table submission_snapshot_files
     extra_data      json
 );
 
+create unique index submission_snapshot_files_unidex
+    on submission_snapshot_files (submission_snapshot_id, site_file_id);
+
 create table hash_algos
 (
     algo_id        serial
@@ -133,6 +136,9 @@ create table submission_snapshot_file_hashes
             references hash_algos,
     hash_value bytea not null
 );
+
+create unique index submission_snapshot_file_hashes_uindex
+    on submission_snapshot_file_hashes (file_id, algo_id);
 
 create table settings
 (

@@ -63,11 +63,26 @@ class File:
 
     def create_snapshot(self, db: "Database") -> None:
         file_rows = db.insert(
+            "WITH e AS ( "
             "INSERT INTO submission_snapshot_files "
             "(submission_snapshot_id, site_file_id, file_url, file_size, extra_data) "
-            "VALUES (%s, %s, %s, %s, %s) RETURNING file_id",
-            (self.submission_snapshot_id, self.site_file_id, self.file_url, self.file_size, json_to_db(self.extra_data))
+            "VALUES (%s, %s, %s, %s, %s) "
+            "ON CONFLICT (submission_snapshot_id, site_file_id) DO NOTHING "
+            "RETURNING file_id "
+            ") SELECT * FROM e "
+            "UNION SELECT file_id FROM submission_snapshot_files "
+            "WHERE submission_snapshot_id = %s AND site_file_id = %s",
+            (
+                self.submission_snapshot_id, self.site_file_id,
+                self.file_url, self.file_size, json_to_db(self.extra_data),
+                self.submission_snapshot_id, self.site_file_id
+            )
         )
+        if not file_rows:
+            file_rows = db.select(
+                "SELECT file_id FROM submission_snapshot_files WHERE submission_snapshot_id = %s AND site_file_id = %s",
+                (self.submission_snapshot_id, self.site_file_id)
+            )
         self.file_id = file_rows[0][0]
 
     def save(self, db: Database, submission_snapshot_id: int) -> None:
@@ -123,11 +138,21 @@ class FileHash:
 
     def create_snapshot(self, db: Database) -> None:
         hash_rows = db.insert(
+            "WITH e AS ( "
             "INSERT INTO submission_snapshot_file_hashes "
             "(file_id, algo_id, hash_value) "
-            "VALUES (%s, %s, %s) RETURNING hash_id",
-            (self.file_id, self.algo_id, self.hash_value)
+            "VALUES (%s, %s, %s) "
+            "ON CONFLICT (file_id, hash_id) DO NOTHING "
+            "RETURNING hash_id "
+            ") SELECT * FROM e "
+            "UNION SELECT hash_id FROM submission_snapshot_file_hashes WHERE file_id = %s AND algo_id = %s",
+            (self.file_id, self.algo_id, self.hash_value, self.file_id, self.algo_id)
         )
+        if not hash_rows:
+            hash_rows = db.select(
+                "SELECT hash_id FROM submission_snapshot_file_hashes WHERE file_id = %s AND algo_id = %s",
+                (self.file_id, self.algo_id)
+            )
         self.hash_id = hash_rows[0][0]
 
     def save(self, db: Database, file_id: int) -> None:
