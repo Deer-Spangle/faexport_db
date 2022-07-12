@@ -29,17 +29,67 @@ class Submission:
         self.site_submission_id = site_submission_id
         self.snapshots = snapshots
         # TODO: Convert to properties
-        self.is_deleted = is_deleted
-        self.first_scanned = first_scanned
-        self.latest_update = latest_update
-        self.uploader = uploader
-        self.uploader_create: UserUpdate = UNSET
-        self.title = title
-        self.description = description
-        self.datetime_posted = datetime_posted
-        self.extra_data = extra_data
-        self.keywords = keywords
         self.files = files
+    
+    @property
+    def sorted_snapshots(self) -> List[SubmissionSnapshot]:
+        return sorted(self.snapshots, key=lambda s: s.scan_datetime, reverse=True)
+
+    @property
+    def is_deleted(self) -> bool:
+        return self.sorted_snapshots[0].is_deleted
+
+    @property
+    def first_scanned(self) -> datetime.datetime:
+        return self.sorted_snapshots[-1].scan_datetime
+
+    @property
+    def latest_update(self) -> datetime.datetime:
+        return self.sorted_snapshots[0].scan_datetime
+    
+    @property
+    def uploader_site_user_id(self) -> str:
+        for snapshot in self.sorted_snapshots:
+            if snapshot.uploader_site_user_id is not None:
+                return snapshot.uploader_site_user_id
+        return None
+    
+    @property
+    def title(self) -> Optional[str]:
+        for snapshot in self.sorted_snapshots:
+            if snapshot.title is not None:
+                return snapshot.title
+        return None
+    
+    @property
+    def description(self) -> Optional[str]:
+        for snapshot in self.sorted_snapshots:
+            if snapshot.description is not None:
+                return snapshot.description
+        return None
+    
+    @property
+    def datetime_posted(self) -> Optional[datetime.datetime]:
+        for snapshot in self.sorted_snapshots:
+            if snapshot.datetime_posted is not None:
+                return snapshot.datetime_posted
+        return None
+
+    @property
+    def extra_data(self) -> Dict[str, Any]:
+        extra_data = {}
+        for snapshot in self.sorted_snapshots[::-1]:
+            if snapshot.extra_data is not None:
+                extra_data = merge_dicts(extra_data, snapshot.extra_data)
+        return extra_data
+    
+    @property
+    def keywords(self) -> List[SubmissionKeyword]:
+        # TODO: How do we indicate that a snapshot has an empty list of keywords? What if a submission used to have keywords, and now has none.
+        for snapshot in self.sorted_snapshots:
+            if snapshot.keywords:
+                return snapshot.keywords
+        return []
 
     @classmethod
     def from_database(
