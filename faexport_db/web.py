@@ -93,7 +93,7 @@ def list_websites() -> Dict:
     return {
         "error": None,
         "data": {
-            "websites": [website.to_web_json() for website in websites]
+            "websites": [website.to_web_json(db) for website in websites]
         }
     }
 

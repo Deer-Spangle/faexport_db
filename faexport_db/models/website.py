@@ -16,11 +16,31 @@ class Website:
         self.full_name = full_name
         self.link = link
 
-    def to_web_json(self) -> Dict:
+    def count_user_snapshots(self, db: Database) -> int:
+        count_rows = db.select(
+            "SELECT COUNT(*) FROM user_snapshots WHERE website_id = %s",
+            (self.website_id,)
+        )
+        if count_rows:
+            return count_rows[0][0]
+        return 0
+
+    def count_submission_snapshots(self, db: Database) -> int:
+        count_rows = db.select(
+            "SELECT COUNT(*) FROM submission_snapshots WHERE website_id = %s",
+            (self.website_id,)
+        )
+        if count_rows:
+            return count_rows[0][0]
+        return 0
+
+    def to_web_json(self, db: Database) -> Dict:
         return {
             "website_id": self.website_id,
             "full_name": self.full_name,
             "link": self.link,
+            "num_user_snapshots": self.count_user_snapshots(db),
+            "num_submission_snapshots": self.count_submission_snapshots(db),
         }
 
     def save(self, db: Database) -> None:
