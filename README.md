@@ -61,6 +61,8 @@ I'm writing out this Readme because I got a bit lost on what this project is mea
   - Post hash, get a list of matching submissions?
 - POST /api/hash_search/<algo_lang>/<algo_name> [TODO]
   - Post hash, get a list of matching submissions?
+- POST /api/search/ [TODO]
+  - Post keywords, and it does a simple submission search for the term in titles, descriptions, keywords
 - GET /api/websites.json
   - List websites
 - GET /api/hash_algos.json
