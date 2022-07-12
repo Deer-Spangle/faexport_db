@@ -25,25 +25,26 @@ DHASH = HashAlgo("rust", "dhash")
 class SiteConfig:
     website: Website
     ingest_artist: bool
-    username_transform: Callable[[str], str] = lambda x: x
+    username_lookup: Callable[[str, str, Database], str] = lambda username, sub_id, db: username
 
 
 SITE_CONFIG = {
     "furaffinity": SiteConfig(
         Website("fa", "Fur Affinity", "https://furaffinity.net"),
         True,
-        lambda username: username.replace("_", "").lower()
+        lambda username, _, __: username.replace("_", "").lower()
     ),
     "weasyl": SiteConfig(
         Website("weasyl", "Weasyl", "https://weasyl.com"),
         True,
-        # TODO: Need to strip non-alpahnumeric to make url, then lookup real username
+        lambda username, sub_id, db: get_weasyl_username(username, sub_id, db)
     ),
     "e621": SiteConfig(
         Website("e621", "e621", "https://e621.net"),
         False
     )
 }
+
 
 WEASYL_LOOKUP = {}
 def get_weasyl_username(display_name: str, submission_id: str, db: Database) -> str:
@@ -81,7 +82,7 @@ def get_weasyl_username(display_name: str, submission_id: str, db: Database) -> 
     return site_username
 
 
-def import_row(row: Dict[str, str]) -> Submission:
+def import_row(row: Dict[str, str], db: Database) -> Submission:
     site, submission_id, artists, hash_value, posted_at, updated_at, sha256, deleted, content_url = row
     site_config = SITE_CONFIG[site]
     website_id = site_config.website.website_id
@@ -91,10 +92,10 @@ def import_row(row: Dict[str, str]) -> Submission:
 
     uploader_username = None
     if site_config.ingest_artist:
-        # TODO: Weasyl username lookup won't be this easy
+        username = site_config.username_lookup(artists, submission_id, db)
         uploader = UserSnapshot(
             website_id,
-            site_config.username_transform(artists),
+            username,
             CONTRIBUTOR,
             ingest_date,
             display_name=artists
@@ -131,15 +132,6 @@ def import_row(row: Dict[str, str]) -> Submission:
     return update
 
 
-fa_allowed_chars = set(string.ascii_lowercase + string.digits + "-_.~[]^`")
-weasyl_allowed_chars = set(string.ascii_letters + string.digits + " -_.'@&!~|`")
-weasyl_transform = lambda name: "".join([char for char in name if char in string.ascii_letters + string.digits])
-# TODO: Oh no. Weasyl usernames don't always do this. "Mr.Pink" -> "pinkpalooka"
-# Need to do an additional lookup, fetching the user page and stuff to get the real username.
-# Sometimes, the username won't exist anymore. In that case, we need to lookup the submission
-
-
-
 def csv_row_count() -> int:
     return 40558648
     with open(FUZZYSEARCH_FILE, "r", encoding="utf-8") as file:
@@ -147,7 +139,9 @@ def csv_row_count() -> int:
         return sum(1 for _ in tqdm.tqdm(reader))
 
 
-def ingest_csv(db: Database) -> None:
+def check_csv(db: Database) -> None:
+    fa_allowed_chars = set(string.ascii_lowercase + string.digits + "-_.~[]^`")
+    weasyl_allowed_chars = set(string.ascii_letters + string.digits + " -_.'@&!~|`")
     sites = set()
     weasyl_usernames = set()
     row_count = csv_row_count()
@@ -177,6 +171,14 @@ def ingest_csv(db: Database) -> None:
     print(f"Confusing weasyl display names: {weasyl_usernames}")
 
 
+def ingest_csv(db: Database) -> None:
+    row_count = csv_row_count()
+    with open(FUZZYSEARCH_FILE, "r", encoding="utf-8") as file:
+        reader = csv.DictReader(file)
+        for row in tqdm.tqdm(reader, total=row_count):
+            import_row(dict(row), db)
+
+
 if __name__ == "__main__":
     # Connect to database
     config_path = "./config.json"
@@ -194,4 +196,5 @@ if __name__ == "__main__":
     SHA_HASH.save(db_obj)
     DHASH.save(db_obj)
     # Import data
-    ingest_csv(db_obj)
+    check_csv(db_obj)
+    # ingest_csv(db_obj)
