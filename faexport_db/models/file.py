@@ -23,7 +23,7 @@ class File:
         self.file_url = file_url
         self.file_size = file_size
         self.extra_data = extra_data
-        self.hashes = hashes
+        self.hashes = hashes or []
 
     def is_clashing(self, update: FileUpdate) -> bool:
         if update.file_url is not UNSET and self.file_url is not None and self.file_url != update.file_url:
