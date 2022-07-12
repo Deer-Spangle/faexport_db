@@ -32,6 +32,27 @@ class SubmissionKeyword:
         if self.keyword_id is None:
             self.create_snapshot(db)
 
+    @classmethod
+    def list_for_submission_snapshot(cls, db: Database, submission_snapshot_id: int) -> List["SubmissionKeyword"]:
+        keyword_rows = db.select(
+            "SELECT keyword_id, keyword, ordinal "
+            "FROM submission_snapshot_keywords "
+            "WHERE submission_snapshot_id = %s",
+            (submission_snapshot_id,)
+        )
+        keywords = []
+        for keyword_row in keyword_rows:
+            keyword_id, keyword, ordinal = keyword_row
+            keywords.append(SubmissionKeyword(
+                keyword,
+                submission_snapshot_id=submission_snapshot_id,
+                keyword_id=keyword_id,
+                ordinal=ordinal
+            ))
+        return keywords
+
+
+# TODO: remove everything below here
 class SubmissionKeywordsList:
 
     def __init__(self, submission_id: int, keywords: List[SubmissionKeyword]) -> None:

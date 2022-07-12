@@ -65,21 +65,7 @@ class Submission:
                 contributor = ArchiveContributor(contributor_name, contributor_id=contributor_id)
                 contributors[contributor_id] = contributor
             # Load keywords
-            keyword_rows = db.select(
-                "SELECT keyword_id, keyword, ordinal "
-                "FROM submission_snapshot_keywords "
-                "WHERE submission_snapshot_id = %s",
-                (submission_snapshot_id,)
-            )
-            keywords = []
-            for keyword_row in keyword_rows:
-                keyword_id, keyword, ordinal = keyword_row
-                keywords.append(SubmissionKeyword(
-                    keyword,
-                    submission_snapshot_id=submission_snapshot_id,
-                    keyword_id=keyword_id,
-                    ordinal=ordinal
-                ))
+            keywords = SubmissionKeyword.list_for_submission_snapshot(db, submission_snapshot_id)
             # TODO: Load files
             snapshots.append(SubmissionSnapshot(
                 website_id,
