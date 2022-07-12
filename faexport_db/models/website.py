@@ -16,6 +16,13 @@ class Website:
         self.full_name = full_name
         self.link = link
 
+    def to_web_json(self) -> Dict:
+        return {
+            "website_id": self.website_id,
+            "full_name": self.full_name,
+            "link": self.link,
+        }
+
     def save(self, db: Database) -> None:
         if self.from_database(db, self.website_id):
             return
@@ -41,3 +48,14 @@ class Website:
             full_name,
             link
         )
+    
+    @classmethod
+    def list_all(cls, db: Database) -> List["Website"]:
+        website_rows = db.select(
+            "SELECT website_id, full_name, link FROM websites"
+        )
+        websites = []
+        for website_row in website_rows:
+            website_id, full_name, link = website_row
+            websites.append(Website(website_id, full_name, link))
+        return websites

@@ -1,3 +1,4 @@
+from faexport_db.models.file import HashAlgo
 from flask import Flask
 
 app = Flask(__name__)
@@ -26,4 +27,24 @@ def view_submission(website_id: str, submission_id: str):
     return {
         "error": None,
         "data": submission.to_web_json()
+    }
+
+@app.route("/api/websites.json")
+def list_websites() -> Dict:
+    websites = Website.list_all(db)
+    return {
+        "error": None,
+        "data": {
+            "websites": [website.to_web_json() for website in websites]
+        }
+    }
+
+@app.route("/api/hash_algos.json")
+def list_hash_algos() -> Dict:
+    hash_algos = HashAlgo.list_all(db)
+    return {
+        "error": None,
+        "data": {
+            "hash_algos": [hash_algo.to_web_json() for hash_algo in hash_algos]
+        }
     }

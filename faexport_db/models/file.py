@@ -186,3 +186,18 @@ class HashAlgo:
     def save(self, db: Database) -> None:
         if self.algo_id is None:
             self.create_snapshot(db)
+    
+    @classmethod
+    def list_all(cls, db: Database) -> List["HashAlgo"]:
+        algo_rows = db.select(
+            "SELECT algo_id, language, algorithm_name FROM hash_algos"
+        )
+        hash_algos = []
+        for algo_row in algo_rows:
+            algo_id, language, name = algo_row
+            hash_algos.append(HashAlgo(
+                language,
+                name,
+                algo_id=algo_id,
+            ))
+        return hash_algos
