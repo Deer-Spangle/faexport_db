@@ -2,23 +2,19 @@ from __future__ import annotations
 import datetime
 from typing import Optional, Dict, Any, List, TYPE_CHECKING
 
-from psycopg2 import errors
-from psycopg2.errorcodes import UNIQUE_VIOLATION
-
 from faexport_db.db import (
     merge_dicts,
     Database,
     json_to_db,
-    unset_to_null,
     UNSET,
 )
-from faexport_db.models.file import FileList
-from faexport_db.models.keyword import SubmissionKeywordsListUpdate, SubmissionKeywordsList
+from faexport_db.models.archive_contributor import ArchiveContributor
+from faexport_db.models.file import FileList, File
+from faexport_db.models.keyword import SubmissionKeywordsListUpdate, SubmissionKeywordsList, SubmissionKeyword
 from faexport_db.models.user import User
 
 if TYPE_CHECKING:
     from faexport_db.models.file import FileListUpdate
-    from faexport_db.models.user import UserUpdate
 
 
 class Submission:
@@ -196,120 +192,77 @@ class Submission:
         )
 
 
-class SubmissionUpdate:
+class SubmissionSnapshot:
     def __init__(
         self,
         website_id: str,
         site_submission_id: str,
-        update_time: datetime.datetime = None,
-        is_deleted: bool = False,
+        contributor: ArchiveContributor,
+        scan_datetime: datetime.datetime,
         *,
-        uploader_update: UserUpdate = UNSET,
-        title: str = UNSET,
-        description: str = UNSET,
-        datetime_posted: datetime.datetime = UNSET,
-        add_extra_data: Dict[str, Any] = UNSET,
-        ordered_keywords: List[str] = UNSET,
-        unordered_keywords: List[str] = UNSET,
-        files: FileListUpdate = UNSET,
+        submission_snapshot_id: int = None,
+        ingest_datetime: datetime.datetime = None,
+        uploader_site_user_id: str = None,
+        is_deleted: bool = False,
+        title: str = None,
+        description: str = None,
+        datetime_posted: datetime.datetime = None,
+        extra_data: Dict[str, Any] = None,
+        keywords: List[SubmissionKeyword] = None,
+        ordered_keywords: List[str] = None,
+        unordered_keywords: List[str] = None,
+        files: List[File] = None,
     ):
         self.website_id = website_id
         self.site_submission_id = site_submission_id
-        self.update_time = update_time or datetime.datetime.now(datetime.timezone.utc)
+        self.contributor = contributor
+        self.scan_datetime = scan_datetime
+        self.submission_snapshot_id = submission_snapshot_id
+        self.ingest_datetime = ingest_datetime
+        self.uploader_site_user_id = uploader_site_user_id
         self.is_deleted = is_deleted
-        self.uploader_update = uploader_update
-        if self.uploader_update is not UNSET:
-            if self.uploader_update.website_id is None:
-                self.uploader_update.website_id = self.website_id
-            if not self.uploader_update.update_time_set:
-                self.uploader_update.update_time = self.update_time
         self.title = title
         self.description = description
         self.datetime_posted = datetime_posted
-        self.add_extra_data = add_extra_data
-        self.ordered_keywords = ordered_keywords
-        self.unordered_keywords = unordered_keywords
+        self.extra_data = extra_data
+        self.keywords = keywords
+        if ordered_keywords is not None:
+            self.keywords = [
+                SubmissionKeyword(keyword, ordinal=ordinal) for ordinal, keyword in enumerate(ordered_keywords)
+            ]
+        if unordered_keywords is not None:
+            self.keywords = [
+                SubmissionKeyword(keyword) for keyword in unordered_keywords
+            ]
         self.files = files
-        if self.files is not UNSET:
-            for file_update in self.files.file_updates:
-                if not file_update.update_time_set:
-                    file_update.update_time = self.update_time
 
-    def create_submission(self, db: "Database") -> Submission:
-        # Handle things which may be unset
-        uploader = None
-        uploader_id = None
-        if self.uploader_update is not UNSET:
-            uploader = self.uploader_update.save(db)
-            uploader_id = uploader.user_id
-        title = unset_to_null(self.title)
-        description = unset_to_null(self.description)
-        datetime_posted = unset_to_null(self.datetime_posted)
-        extra_data = unset_to_null(self.add_extra_data)
-        submission_rows = db.insert(
-            "INSERT INTO submissions "
-            "(website_id, site_submission_id, is_deleted, first_scanned, latest_update, uploader_id, title, "
-            "description, datetime_posted, extra_data) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING submission_id",
+    def create_snapshot(self, db: "Database") -> None:
+        snapshot_rows = db.insert(
+            "WITH e AS ("
+            "INSERT INTO submission_snapshots "
+            "(website_id, site_submission_id, scan_datetime, archive_contributor_id, ingest_datetime, "
+            "uploader_site_user_id, is_deleted, title, description, datetime_posted, extra_data) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            "ON CONFLICT (website_id, site_submission_id, scan_datetime, archive_contributor_id) DO NOTHING "
+            "RETURNING submission_snapshot_id "
+            ") SELECT * FROM e "
+            "UNION SELECT submission_snapshot_id FROM submission_snapshots "
+            "WHERE website_id = %s AND site_submission_id = %s AND scan_datetime = %s AND archive_contributor_id = %s",
             (
-                self.website_id,
-                self.site_submission_id,
-                self.is_deleted,
-                self.update_time,
-                self.update_time,
-                uploader_id,
-                title,
-                description,
-                datetime_posted,
-                json_to_db(extra_data),
-            ),
+                self.website_id, self.site_submission_id, self.scan_datetime, self.contributor.contributor_id,
+                self.ingest_datetime, self.uploader_site_user_id, self.is_deleted, self.title, self.description,
+                self.datetime_posted, json_to_db(self.extra_data),
+                self.website_id, self.site_submission_id, self.scan_datetime, self.contributor.contributor_id
+            )
         )
-        submission_id = submission_rows[0][0]
+        self.submission_snapshot_id = snapshot_rows[0][0]
         # Save keywords
-        submission_keywords = SubmissionKeywordsList(submission_id, [])
-        if self.ordered_keywords is not UNSET:
-            keywords_update = SubmissionKeywordsListUpdate.from_ordered_keywords(self.ordered_keywords)
-            submission_keywords = keywords_update.save(db, submission_id)
-        if self.unordered_keywords is not UNSET:
-            keywords_update = SubmissionKeywordsListUpdate.from_unordered_keywords(self.unordered_keywords)
-            submission_keywords = keywords_update.save(db, submission_id)
+        for keyword in self.keywords:
+            keyword.save(db, self.submission_snapshot_id)
         # Save files
-        files = FileList(submission_id, [])
-        if self.files is not UNSET:
-            files = self.files.create(db, submission_id)
-        return Submission(
-            submission_id,
-            self.website_id,
-            self.site_submission_id,
-            self.is_deleted,
-            self.update_time,
-            self.update_time,
-            uploader,
-            title,
-            description,
-            datetime_posted,
-            extra_data,
-            submission_keywords,
-            files
-        )
+        for file in self.files:
+            file.save(db, self.submission_snapshot_id)
 
-    def save(self, db: "Database") -> Submission:
-        submission = Submission.from_database(
-            db, self.website_id, self.site_submission_id
-        )
-        if submission is not None:
-            submission.add_update(self)
-            submission.save(db)
-            return submission
-        try:
-            return self.create_submission(db)
-        except errors.lookup(UNIQUE_VIOLATION):
-            submission = Submission.from_database(db, self.website_id, self.site_submission_id)
-            if submission is None:
-                raise ValueError("Submission existed, and then disappeared")
-            submission.add_update(self)
-            submission.save(db)
-            return submission
-        except Exception as e:
-            print(f"Failed to create submission: {self.site_submission_id}")
-            raise e
+    def save(self, db: "Database") -> None:
+        if self.submission_snapshot_id is None:
+            self.create_snapshot(db)

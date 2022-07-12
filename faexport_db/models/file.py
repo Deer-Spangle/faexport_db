@@ -9,27 +9,21 @@ class File:
     def __init__(
             self,
             file_id: int,
-            submission_id: int,
             site_file_id: Optional[str],
-            is_current: bool,
-            first_scanned: datetime.datetime,
-            latest_update: datetime.datetime,
-            file_url: Optional[str],
-            file_size: Optional[int],
-            extra_data: Optional[Dict[str, Any]],
-            hashes: FileHashList,
+            *,
+            submission_snapshot_id: int = None,
+            file_url: Optional[str] = None,
+            file_size: Optional[int] = None,
+            extra_data: Optional[Dict[str, Any]] = None,
+            hashes: FileHashList = None,
     ):
         self.file_id = file_id
-        self.submission_id = submission_id
         self.site_file_id = site_file_id
-        self.is_current = is_current
-        self.first_scanned = first_scanned
-        self.latest_update = latest_update
+        self.submission_snapshot_id = submission_snapshot_id
         self.file_url = file_url
         self.file_size = file_size
         self.extra_data = extra_data
         self.hashes = hashes
-        self.updated = False
 
     def is_clashing(self, update: FileUpdate) -> bool:
         if update.file_url is not UNSET and self.file_url is not None and self.file_url != update.file_url:
@@ -40,41 +34,20 @@ class File:
             return True
         return False
 
-    def add_update(self, update: FileUpdate) -> None:
-        if update.update_time > self.latest_update:
-            self.latest_update = update.update_time
-            self.updated = True
-            if update.file_url is not UNSET:
-                self.file_url = update.file_url
-            if update.file_size is not UNSET:
-                self.file_size = update.file_size
-            if update.add_extra_data is not UNSET:
-                self.extra_data = merge_dicts(self.extra_data, update.add_extra_data)
-            if update.add_hashes is not UNSET:
-                self.hashes.add_update(update.add_hashes)
-            return
-        if update.update_time < self.first_scanned:
-            self.first_scanned = update.update_time
-            self.updated = True
-        if update.add_extra_data is not UNSET:
-            self.extra_data = merge_dicts(update.add_extra_data, self.extra_data)
-            self.updated = True
-        if update.add_hashes is not UNSET:
-            self.hashes.add_update(update.add_hashes)
-            self.updated = self.updated or self.hashes.updated
+    def create_snapshot(self, db: "Database") -> None:
+        file_rows = db.insert(
+            "INSERT INTO submission_snapshot_files "
+            "(submission_snapshot_id, site_file_id, file_url, file_size, extra_data) "
+            "VALUES (%s, %s, %s, %s, %s) RETURNING file_id",
+            (self.submission_snapshot_id, self.site_file_id, self.file_url, self.file_size, self.extra_data)
+        )
+        self.file_id = file_rows[0][0]
 
-    def save(self, db: Database) -> None:
-        if self.updated:
-            db.update(
-                "UPDATE files SET first_scanned = %s, latest_update = %s, file_url = %s, file_size = %s, "
-                "extra_data = %s "
-                "WHERE file_id = %s",
-                (
-                    self.first_scanned, self.latest_update, self.file_url, self.file_size, json_to_db(self.extra_data),
-                    self.file_id
-                )
-            )
-        self.hashes.save(db)
+    def save(self, db: Database, submission_snapshot_id: int) -> None:
+        self.submission_snapshot_id = submission_snapshot_id
+        if self.file_id is not None:
+            self.create_snapshot(db)
+        self.hashes.save(db, self.file_id)
 
 
 class FileUpdate:
@@ -224,15 +197,30 @@ class FileListUpdate:
 class FileHash:
     def __init__(
             self,
-            hash_id: int,
-            file_id: int,
             algo_id: str,
-            hash_value: bytes
+            hash_value: bytes,
+            *,
+            file_id: int = None,
+            hash_id: int = None,
     ) -> None:
-        self.hash_id = hash_id
-        self.file_id = file_id
         self.algo_id = algo_id
         self.hash_value = hash_value
+        self.file_id = file_id
+        self.hash_id = hash_id
+
+    def create_snapshot(self, db: Database) -> None:
+        hash_rows = db.insert(
+            "INSERT INTO submission_snapshot_file_hashes "
+            "(file_id, algo_id, hash_value) "
+            "VALUES (%s, %s, %s) RETURNING hash_id",
+            (self.file_id, self.algo_id, self.hash_value)
+        )
+        self.hash_id = hash_rows[0][0]
+
+    def save(self, db: Database, file_id: int) -> None:
+        self.file_id = file_id
+        if self.hash_id is None:
+            self.create_snapshot(db)
 
 
 class FileHashUpdate:

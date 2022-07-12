@@ -6,32 +6,31 @@ from faexport_db.db import Database, UNSET, unset_to_null
 class SubmissionKeyword:
     def __init__(
             self,
-            keyword_id: int,
-            submission_id: int,
             keyword: str,
+            *,
+            submission_snapshot_id: int = None,
+            keyword_id: int = None,
             ordinal: Optional[int] = None
     ):
-        self.keyword_id = keyword_id
-        self.submission_id = submission_id
         self.keyword = keyword
+        self.submission_snapshot_id = submission_snapshot_id
+        self.keyword_id = keyword_id
         self.ordinal = ordinal
-        self.updated = False
 
-    def add_update(self, update: "SubmissionKeywordUpdate") -> None:
-        if update.keyword != update.keyword:
-            self.updated = True
-            self.keyword = update.keyword
-        if update.ordinal is not UNSET:
-            self.updated = True
-            self.ordinal = update.ordinal
+    def create_snapshot(self, db: "Database") -> None:
+        keyword_rows = db.insert(
+            "INSERT INTO submission_snapshot_keywords "
+            "(submission_snapshot_id, keyword, ordinal) "
+            "VALUES (%s, %s, %s) "
+            "RETURNING keyword_id",
+            (self.submission_snapshot_id, self.keyword, self.ordinal)
+        )
+        self.keyword_id = keyword_rows[0][0]
 
-    def save(self, db: "Database") -> None:
-        if self.updated:
-            db.update(
-                "UPDATE submission_keywords SET keyword = %s, ordinal = %s WHERE keyword_id = %s",
-                (self.keyword, self.ordinal, self.keyword_id)
-            )
-
+    def save(self, db: "Database", submission_snapshot_id: int) -> None:
+        self.submission_snapshot_id = submission_snapshot_id
+        if self.keyword_id is None:
+            self.create_snapshot(db)
 
 class SubmissionKeywordsList:
 
