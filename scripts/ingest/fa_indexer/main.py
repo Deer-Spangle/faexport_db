@@ -27,22 +27,28 @@ CONTRIBUTOR = ArchiveContributor("fa-indexer data ingest")
 DONE_SIGNAL = "DONE"
 
 
-def import_submission_data(db: Database, submission_data: Dict) -> SubmissionSnapshot:
+def import_submission_data(
+        db: Database,
+        submission_data: Dict,
+        site_id: str,
+        contributor: ArchiveContributor,
+        scan_date: datetime.datetime
+) -> SubmissionSnapshot:
     if submission_data["id"] == 641877:
         submission_data["description"] = submission_data["description"].replace("\0", "/0")
     uploader_username = submission_data["username"]
     user_snapshot = UserSnapshot(
-        SITE_ID,
+        site_id,
         uploader_username,
-        CONTRIBUTOR,
-        DATA_DATE
+        contributor,
+        scan_date
     )
     user_snapshot.save(db)
     snapshot = SubmissionSnapshot(
-        SITE_ID,
+        site_id,
         str(submission_data["id"]),
-        CONTRIBUTOR,
-        DATA_DATE,
+        contributor,
+        scan_date,
         uploader_site_user_id=uploader_username,
         title=submission_data["title"],
         description=submission_data["description"],
@@ -61,11 +67,23 @@ def import_submission_data(db: Database, submission_data: Dict) -> SubmissionSna
 
 
 class Processor:
-    def __init__(self, dsn: str, queue: Queue, resp_queue: Queue, num: int):
+    def __init__(
+            self,
+            dsn: str,
+            queue: Queue,
+            resp_queue: Queue,
+            num: int,
+            site_id: str,
+            contributor: ArchiveContributor,
+            scan_date: datetime.datetime
+    ):
         self.dsn = dsn
         self.queue = queue
         self.resp_queue = resp_queue
         self.num = num
+        self.site_id = site_id
+        self.contributor = contributor
+        self.scan_date = scan_date
 
     def process_entries(
             self,
@@ -81,7 +99,7 @@ class Processor:
             # print(f"Importing submission: {submission_data['id']} in worker {self.num}")
             if submission_data == DONE_SIGNAL:
                 break
-            snapshot = import_submission_data(db, submission_data)
+            snapshot = import_submission_data(db, submission_data, self.site_id, self.contributor, self.scan_date)
             self.resp_queue.put(snapshot.site_submission_id)
 
 
@@ -89,7 +107,9 @@ def scan_directory(dsn: str, dir_path: str) -> None:
     num_processes = 10
     queue = multiprocessing.Queue()
     resp_queue = multiprocessing.Queue()
-    processors = [Processor(dsn, queue, resp_queue, num) for num in range(num_processes)]
+    processors = [
+        Processor(dsn, queue, resp_queue, num, SITE_ID, CONTRIBUTOR, DATA_DATE) for num in range(num_processes)
+    ]
     processes = [Process(target=processor.process_entries) for processor in processors]
     for process in processes:
         process.start()
