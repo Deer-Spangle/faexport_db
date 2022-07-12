@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Dict, List
 
 if TYPE_CHECKING:
     from faexport_db.db import Database
@@ -52,7 +52,8 @@ class Website:
     @classmethod
     def list_all(cls, db: Database) -> List["Website"]:
         website_rows = db.select(
-            "SELECT website_id, full_name, link FROM websites"
+            "SELECT website_id, full_name, link FROM websites",
+            tuple()
         )
         websites = []
         for website_row in website_rows:

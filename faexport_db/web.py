@@ -1,6 +1,13 @@
+import json
 import os
+from typing import Dict
 
+import psycopg2
+
+from faexport_db.db import Database
 from faexport_db.models.file import HashAlgo
+from faexport_db.models.submission import Submission
+from faexport_db.models.user import User
 from faexport_db.models.website import Website
 from flask import Flask
 
@@ -11,7 +18,7 @@ if dsn is None:
     with open("./config.json", "r") as f:
         conf = json.load(f)
     dsn = conf["db_conn"]
-db_conn = psycopg2.connect(db_dsn)
+db_conn = psycopg2.connect(dsn)
 db = Database(db_conn)
 
 
@@ -21,6 +28,7 @@ def hello():
         'Welcome to FAExport_DB. This is a project to provide a cache database for furry art websites, and '
         'hopefully reduce scraping impact on those websites!'
     )
+
 
 @app.route("/api/view/submissions/<website_id>/<submission_id>.json")
 def view_submission(website_id: str, submission_id: str):
@@ -39,6 +47,7 @@ def view_submission(website_id: str, submission_id: str):
         "data": submission.to_web_json()
     }
 
+
 @app.route("/api/view/users/<website_id>/<user_id>.json")
 def view_user(website_id: str, user_id: str):
     website = Website.from_database(db, website_id)
@@ -55,6 +64,7 @@ def view_user(website_id: str, user_id: str):
         "error": None,
         "data": user.to_web_json()
     }
+
 
 @app.route("/api/view/users/<website_id>.json")
 def list_users(website_id: str):
@@ -85,6 +95,7 @@ def list_websites() -> Dict:
             "websites": [website.to_web_json() for website in websites]
         }
     }
+
 
 @app.route("/api/hash_algos.json")
 def list_hash_algos() -> Dict:

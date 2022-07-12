@@ -1,6 +1,6 @@
 from __future__ import annotations
 import datetime
-from typing import Optional, Dict, Any, List, TYPE_CHECKING
+from typing import Optional, Dict, Any, List
 
 from faexport_db.db import (
     merge_dicts,
@@ -10,8 +10,6 @@ from faexport_db.db import (
 from faexport_db.models.archive_contributor import ArchiveContributor
 from faexport_db.models.file import File
 from faexport_db.models.keyword import SubmissionKeyword
-from faexport_db.models.user import User
-
 
 
 class Submission:
@@ -42,7 +40,7 @@ class Submission:
         return self.sorted_snapshots[0].scan_datetime
     
     @property
-    def uploader_site_user_id(self) -> str:
+    def uploader_site_user_id(self) -> Optional[str]:
         for snapshot in self.sorted_snapshots:
             if snapshot.uploader_site_user_id is not None:
                 return snapshot.uploader_site_user_id
@@ -118,7 +116,7 @@ class Submission:
                 "uploader_site_user_id": self.uploader_site_user_id,
                 "title": self.title,
                 "description": self.description,
-                "datetime_posted": self.datetime_posted.isoformat() if self.datetime is not None else None,
+                "datetime_posted": self.datetime_posted.isoformat() if self.datetime_posted is not None else None,
                 "extra_data": self.extra_data,
                 "keywords": [keyword.to_web_json() for keyword in self.keywords],
                 "files": [file.to_web_json() for file in self.files.values()],
@@ -135,7 +133,8 @@ class Submission:
             "s.extra_data "
             "FROM submission_snapshots s "
             "LEFT JOIN archive_contributors a ON s.archive_contributor_id = a.contributor_id "
-            "WHERE website_id = %s AND site_submission_id = %s"
+            "WHERE website_id = %s AND site_submission_id = %s",
+            (website_id, site_submission_id)
         )
         snapshots = []
         contributors = {}

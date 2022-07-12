@@ -14,9 +14,9 @@ from faexport_db.models.archive_contributor import ArchiveContributor
 import tqdm
 
 from faexport_db.db import Database
-from faexport_db.models.file import FileUpdate, FileListUpdate
-from faexport_db.models.submission import SubmissionSnapshot, SubmissionUpdate, Submission
-from faexport_db.models.user import UserUpdate
+from faexport_db.models.file import File
+from faexport_db.models.submission import SubmissionSnapshot
+from faexport_db.models.user import UserSnapshot
 from faexport_db.models.website import Website
 
 DATA_DIR = "./dump/fa-indexer/"

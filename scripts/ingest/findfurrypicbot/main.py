@@ -7,8 +7,8 @@ from faexport_db.models.archive_contributor import ArchiveContributor
 import tqdm
 
 from faexport_db.db import Database
-from faexport_db.models.file import FileHash, FileListUpdate, FileUpdate, FileHashListUpdate, FileHashUpdate, HashAlgo
-from faexport_db.models.submission import SubmissionSnapshot, SubmissionUpdate, Submission
+from faexport_db.models.file import FileHash, HashAlgo, File
+from faexport_db.models.submission import SubmissionSnapshot
 from scripts.ingest.fa_indexer.main import setup_initial_data
 
 DB_LOCATION = "./dump/findfurrypicbot/fa_bin/fa_bin.sqlite3"
@@ -64,10 +64,10 @@ if __name__ == "__main__":
     db_conn = psycopg2.connect(db_dsn)
     db_obj = Database(db_conn)
     setup_initial_data(db_obj, CONTRIBUTOR)
-    AHASH.save(db)
-    DHASH.save(db)
-    PHASH.save(db)
-    WHASH.save(db)
+    AHASH.save(db_obj)
+    DHASH.save(db_obj)
+    PHASH.save(db_obj)
+    WHASH.save(db_obj)
 
     sqlite_conn = sqlite3.connect(DB_LOCATION)
     sqlite_conn.row_factory = sqlite3.Row

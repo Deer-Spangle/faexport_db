@@ -88,7 +88,7 @@ def get_weasyl_username(display_name: str, submission_id: str, db: Database) -> 
 
 
 def import_row(row: Dict[str, str], db: Database) -> SubmissionSnapshot:
-    site, submission_id, artists, hash_value, posted_at, updated_at, sha256, deleted, content_url = row
+    site, submission_id, artists, hash_value, posted_at, updated_at, sha256, deleted, content_url = row.values()
     site_config = SITE_CONFIG[site]
     website_id = site_config.website.website_id
     ingest_date = csv_earliest_date()

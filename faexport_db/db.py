@@ -1,6 +1,5 @@
-import datetime
 import json
-from typing import Tuple, List, Any, Optional, Dict, Union
+from typing import Tuple, List, Any, Optional, Dict
 
 import psycopg2
 

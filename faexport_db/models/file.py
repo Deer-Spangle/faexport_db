@@ -1,6 +1,5 @@
 from __future__ import annotations
 from typing import Optional, Dict, Any, List
-import datetime
 import base64
 
 from faexport_db.db import Database, merge_dicts, json_to_db
@@ -79,7 +78,7 @@ class File:
             file_hash.save(db, self.file_id)
 
     @classmethod
-    def list_for_submission_snapshot(db: Database, submission_snapshot_id: int) -> List["File"]:
+    def list_for_submission_snapshot(cls, db: Database, submission_snapshot_id: int) -> List["File"]:
         file_rows = db.select(
             "SELECT file_id, site_file_id, file_url, file_size, extra_data "
             "FROM submission_snapshot_files "
@@ -90,7 +89,7 @@ class File:
         for file_row in file_rows:
             file_id, site_file_id, file_url, file_size, extra_data = file_row
             hashes = FileHash.list_for_file(db, file_id)
-            files.append(File(
+            files.append(cls(
                 site_file_id,
                 file_id=file_id,
                 submission_snapshot_id=submission_snapshot_id,
@@ -137,7 +136,7 @@ class FileHash:
             self.create_snapshot(db)
     
     @classmethod
-    def list_for_file(db: Database, file_id: int) -> List["FileHash"]:
+    def list_for_file(cls, db: Database, file_id: int) -> List["FileHash"]:
         hash_rows = db.select(
             "SELECT hash_id, algo_id, hash_value "
             "FROM submission_snapshot_file_hashes "
@@ -147,7 +146,7 @@ class FileHash:
         hashes = []
         for hash_row in hash_rows:
             hash_id, algo_id, hash_value = hash_row
-            hashes.append(FileHash(
+            hashes.append(cls(
                 algo_id,
                 hash_value,
                 file_id=file_id,
@@ -168,6 +167,13 @@ class HashAlgo:
         self.language = language
         self.algorithm_name = algorithm_name
         self.algo_id = algo_id
+
+    def to_web_json(self) -> Dict:
+        return {
+            "algo_id": self.algo_id,
+            "language": self.language,
+            "algorithm_name": self.algorithm_name,
+        }
     
     def _create(self, db: Database) -> None:
         algo_rows = db.insert(
@@ -185,12 +191,13 @@ class HashAlgo:
     
     def save(self, db: Database) -> None:
         if self.algo_id is None:
-            self.create_snapshot(db)
+            self._create(db)
     
     @classmethod
     def list_all(cls, db: Database) -> List["HashAlgo"]:
         algo_rows = db.select(
-            "SELECT algo_id, language, algorithm_name FROM hash_algos"
+            "SELECT algo_id, language, algorithm_name FROM hash_algos",
+            tuple()
         )
         hash_algos = []
         for algo_row in algo_rows:
