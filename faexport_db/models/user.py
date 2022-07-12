@@ -135,7 +135,6 @@ class UserSnapshot:
         self.extra_data = extra_data
 
     def create_snapshot(self, db: "Database") -> None:
-        self.contributor.save(db)
         user_rows = db.insert(
             "WITH e AS ( "
             "INSERT INTO user_snapshots "
