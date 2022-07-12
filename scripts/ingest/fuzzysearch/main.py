@@ -63,7 +63,7 @@ def get_weasyl_username(display_name: str, submission_id: str, db: Database) -> 
             return site_username
     except Exception:
         pass
-    # TODO: Else, get submission page, and get username and display name from there
+    # Else, get submission page, and get username and display name from there
     submission_url = f"https://weasyl.com/~username/submissions/{submission_id}/"
     resp = requests.get(submission_url)
     body = resp.content
