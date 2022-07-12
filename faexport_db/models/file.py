@@ -87,7 +87,7 @@ class File:
 
     def save(self, db: Database, submission_snapshot_id: int) -> None:
         self.submission_snapshot_id = submission_snapshot_id
-        if self.file_id is not None:
+        if self.file_id is None:
             self.create_snapshot(db)
         for file_hash in self.hashes:
             file_hash.save(db, self.file_id)
