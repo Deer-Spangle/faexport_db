@@ -98,10 +98,10 @@ class UserSnapshot:
             website_id: str,
             site_user_id: str,
             contributor: ArchiveContributor,
-            scan_datetime: datetime = None,
+            scan_datetime: datetime.datetime = None,
             *,
             user_snapshot_id: int = None,
-            ingest_datetime: datetime = None,
+            ingest_datetime: datetime.datetime = None,
             is_deleted: bool = False,
             display_name: str = None,
             extra_data: Dict[str, Any] = None,
@@ -121,9 +121,9 @@ class UserSnapshot:
     def create_snapshot(self, db: "Database") -> None:
         self.contributor.save(db)
         user_rows = db.insert(
-            "WITH e AS( "
+            "WITH e AS ( "
             "INSERT INTO user_snapshots "
-            "(website_id, site_user_id, scan_datetime, archive_contributor_id, ingest_datatime, is_deleted, "
+            "(website_id, site_user_id, scan_datetime, archive_contributor_id, ingest_datetime, is_deleted, "
             "display_name, extra_data) "
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) "
             "ON CONFLICT (website_id, site_user_id, scan_datetime, archive_contributor_id) DO NOTHING "
