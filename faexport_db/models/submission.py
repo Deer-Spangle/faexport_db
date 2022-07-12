@@ -6,7 +6,6 @@ from faexport_db.db import (
     merge_dicts,
     Database,
     json_to_db,
-    UNSET,
 )
 from faexport_db.models.archive_contributor import ArchiveContributor
 from faexport_db.models.file import File
