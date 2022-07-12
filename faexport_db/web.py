@@ -109,7 +109,7 @@ def list_hash_algos() -> Dict:
     }
 
 
-@app.route("/api/archive_contribiutors.json")
+@app.route("/api/archive_contributors.json")
 def list_archive_contributors() -> Dict:
     contributors = ArchiveContributor.list_all(db)
     return {
