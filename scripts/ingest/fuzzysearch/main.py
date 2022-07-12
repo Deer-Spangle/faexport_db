@@ -91,7 +91,7 @@ def import_row(row: Dict[str, str], db: Database) -> SubmissionSnapshot:
     site, submission_id, artists, hash_value, posted_at, updated_at, sha256, deleted, content_url = row
     site_config = SITE_CONFIG[site]
     website_id = site_config.website.website_id
-    ingest_date = DATA_DATE  # TODO: That doesn't seem right, it should be the lowest value, not newest
+    ingest_date = csv_earliest_date()
     if updated_at:
         ingest_date = dateutil.parser.parse(updated_at)
 
@@ -142,6 +142,17 @@ def csv_row_count() -> int:
     with open(FUZZYSEARCH_FILE, "r", encoding="utf-8") as file:
         reader = csv.reader(file)
         return sum(1 for _ in tqdm.tqdm(reader))
+
+
+def csv_earliest_date() -> datetime.dateime:
+    return datetime.datetime(2021, 4, 25, 18, 57, 56, 966994, datetime.timezone.utc)
+    earliest = "zzz"
+    with open(FUZZYSEARCH_FILE, "r", encoding="utf-8") as file:
+        reader = csv.reader(file)
+        for line in reader:
+            if line[5]:
+                earliest = min(earliest, line[5])
+    return dateutil.parser.parse(earliest)
 
 
 def check_csv() -> None:
