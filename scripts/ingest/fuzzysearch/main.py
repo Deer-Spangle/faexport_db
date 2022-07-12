@@ -17,7 +17,7 @@ from faexport_db.models.website import Website
 FUZZYSEARCH_FILE = "./dump/fuzzysearch/fuzzysearch-dumps.csv"
 DATA_DATE = datetime.datetime(2022, 6, 22, 0, 0, 0, 0, datetime.timezone.utc)
 CONTRIBUTOR = ArchiveContributor("FuzzySearch data ingest")
-SHAHASH = HashAlgo("any", "sha256")
+SHA_HASH = HashAlgo("any", "sha256")
 DHASH = HashAlgo("rust", "dhash")
 
 
@@ -109,15 +109,19 @@ def csv_row_count() -> int:
         return sum(1 for _ in tqdm.tqdm(reader))
 
 
-def ingest_csv() -> None:
+def ingest_csv(db: Database) -> None:
     sites = set()
     weasyl_usernames = set()
     row_count = csv_row_count()
     print(f"CSV has {row_count} rows")
+    earliest_date = datetime.datetime.now(datetime.timezone.utc)
     with open(FUZZYSEARCH_FILE, 'r', encoding='utf-8') as file:
         reader = csv.DictReader(file)
         for row in tqdm.tqdm(reader, total=row_count):
             drow = dict(row)
+            if drow["updated_at"]:
+                updated_at = dateutil.parser.parse(row["updated_at"])
+                earliest_date = min(earliest_date, updated_at)
             site = drow["site"]
             sites.add(site)
             if site == "e621":
@@ -130,13 +134,26 @@ def ingest_csv() -> None:
             if site == "furaffinity":
                 if not set(username.lower()).issubset(fa_allowed_chars):
                     print(f"Found an odd FA username character: {username}")
-    print(sites)
-    print(weasyl_usernames)
+    print(f"Earliest date: {earliest_date}")
+    print(f"Site list: {sites}")
+    print(f"Confusing weasyl display names: {weasyl_usernames}")
 
 
 if __name__ == "__main__":
-    # TODO: connect to database
-    # TODO: Create websites from SITE_MAP
-    # TODO: Save contributor
-    # TODO: Save SHA_HASH and DHASH
-    ingest_csv()
+    # Connect to database
+    config_path = "./config.json"
+    with open(config_path, "r") as conf_file:
+        config = json.load(conf_file)
+    db_dsn = config["db_conn"]
+    db_conn = psycopg2.connect(db_dsn)
+    db_obj = Database(db_conn)
+    # Create websites from SITE_MAP
+    for site_conf in SITE_CONFIG.values():
+        site_conf.website.save(db_obj)
+    # Save contributor
+    CONTRIBUTOR.save(db_obj)
+    # Save SHA_HASH and DHASH
+    SHA_HASH.save(db_obj)
+    DHASH.save(db_obj)
+    # Import data
+    ingest_csv(db_obj)
