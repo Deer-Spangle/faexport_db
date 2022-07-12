@@ -45,24 +45,62 @@ SITE_CONFIG = {
     )
 }
 
+WEASYL_LOOKUP = {}
+def get_weasyl_username(display_name: str, submission_id: str, db: Database) -> str:
+    if display_name in WEASYL_LOOKUP:
+        return WEASYL_LOOKUP[display_name]
+    username_guess = "".join([char for char in display_name.lower() if char in string.ascii_letters + string.digits])
+    # Fetch weasyl user page
+    try:
+        # Check display name on guessed user page
+        resp = requests.get(f"https://weasyl.com/~{username_guess}")
+        body = resp.content
+        site_display_name = body.split("<title>")[1].split("’s profile — Weasyl</title>")[0]
+        # If display name is correct on page, return username from page
+        if display_name == site_display_name:
+            site_username = body.split("<link rel=\"canonical\" href=\"https://www.weasyl.com/~")[1].split("\" />")[0]
+            WEASYL_LOOKUP[display_name] = site_username
+            return site_username
+    except Exception:
+        pass
+    # TODO: Else, get submission page, and get username and display name from there
+    submission_url = f"https://weasyl.com/~username/submissions/{submission_id}/"
+    resp = requests.get(submission_url)
+    body = resp.content
+    site_user_tag = body.split("<div id=\"db-user\">")[1].split("<a class=\"username\" href=\"/~")[1].split("</a>")[0]
+    site_username, site_display_name = site_user_tag.split("\">")
+    WEASYL_LOOKUP[display_name] = site_username
+    WEASYL_LOOKUP[site_display_name] = site_username
+    user_snapshot = UserSnapshot(
+        SITE_CONFIG["weasyl"].website.website_id,
+        site_username,
+        CONTRIBUTOR,
+        display_name=site_display_name,
+    )
+    user_snapshot.save(db)
+    return site_username
+
 
 def import_row(row: Dict[str, str]) -> Submission:
     site, submission_id, artists, hash_value, posted_at, updated_at, sha256, deleted, content_url = row
     site_config = SITE_CONFIG[site]
     website_id = site_config.website.website_id
+    ingest_date = DATA_DATE  # TODO: That doesn't seem right, it should be the lowest value, not newest
+    if updated_at:
+        ingest_date = dateutil.parser.parse(updated_at)
+
     uploader_username = None
     if site_config.ingest_artist:
         # TODO: Weasyl username lookup won't be this easy
         uploader = UserSnapshot(
             website_id,
             site_config.username_transform(artists),
+            CONTRIBUTOR,
+            ingest_date,
             display_name=artists
         )
         uploader.save(db)
         uploader_username = uploader.site_user_id
-    ingest_date = DATA_DATE  # TODO: That doesn't seem right, it should be the lowest value, not newest
-    if updated_at:
-        ingest_date = dateutil.parser.parse(updated_at)
 
     dhash_bytes = int(hash_value).to_bytes(8, byteorder='big')
     hashes = [
