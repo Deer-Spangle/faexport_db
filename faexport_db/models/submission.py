@@ -9,12 +9,10 @@ from faexport_db.db import (
     UNSET,
 )
 from faexport_db.models.archive_contributor import ArchiveContributor
-from faexport_db.models.file import FileList, File
+from faexport_db.models.file import File
 from faexport_db.models.keyword import SubmissionKeyword
 from faexport_db.models.user import User
 
-if TYPE_CHECKING:
-    from faexport_db.models.file import FileListUpdate
 
 
 class Submission:
