@@ -187,6 +187,11 @@ class HashAlgo:
             "WHERE language = %s AND algorithm_name = %s",
             (self.language, self.algorithm_name, self.language, self.algorithm_name)
         )
+        if not algo_rows:
+            algo_rows = db.select(
+                "SELECT algo_id FROM hash_algos WHERE language = %s AND algorithm_name = %s",
+                (self.language, self.algorithm_name)
+            )
         self.algo_id = algo_rows[0][0]
     
     def save(self, db: Database) -> None:

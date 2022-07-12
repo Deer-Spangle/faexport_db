@@ -38,9 +38,18 @@ class ArchiveContributor:
     def save(self, db: Database) -> None:
         if self.contributor_id is None:
             contributor_rows = db.insert(
-                "INSERT INTO archive_contributors (name) VALUES (%s) RETURNING contributor_id",
-                (self.name,)
+                "WITH e AS ( "
+                "INSERT INTO archive_contributors (name) VALUES (%s) ON CONFLICT (name) DO NOTHING "
+                "RETURNING contributor_id ) "
+                "SELECT * FROM e "
+                "UNION SELECT contributor_id FROM archive_contributors WHERE name = %s",
+                (self.name, self.name)
             )
+            if not contributor_rows:
+                contributor_rows = db.select(
+                    "SELECT contributor_id FROM archive_contributors WHERE name = %s",
+                    (self.name,)
+                )
             self.contributor_id = contributor_rows[0][0]
 
     @classmethod

@@ -243,6 +243,13 @@ class SubmissionSnapshot:
                 self.website_id, self.site_submission_id, self.scan_datetime, self.contributor.contributor_id
             )
         )
+        if not snapshot_rows:
+            snapshot_rows = db.select(
+                "SELECT submission_snapshot_id FROM submission_snapshots "
+                "WHERE website_id = %s AND site_submission_id = %s AND scan_datetime = %s "
+                "AND archive_contributor_id = %s",
+                (self.website_id, self.site_submission_id, self.scan_datetime, self.contributor.contributor_id)
+            )
         self.submission_snapshot_id = snapshot_rows[0][0]
         # Save keywords
         if self.keywords is not None:
