@@ -5,6 +5,7 @@ from typing import Dict
 import psycopg2
 
 from faexport_db.db import Database
+from faexport_db.models.archive_contributor import ArchiveContributor
 from faexport_db.models.file import HashAlgo
 from faexport_db.models.submission import Submission
 from faexport_db.models.user import User
@@ -104,5 +105,16 @@ def list_hash_algos() -> Dict:
         "error": None,
         "data": {
             "hash_algos": [hash_algo.to_web_json() for hash_algo in hash_algos]
+        }
+    }
+
+
+@app.route("/api/archive_contribiutors.json")
+def list_archive_contributors() -> Dict:
+    contributors = ArchiveContributor.list_all(db)
+    return {
+        "error": None,
+        "data": {
+            "archive_contributors": [contributor.to_web_json(db) for contributor in contributors]
         }
     }

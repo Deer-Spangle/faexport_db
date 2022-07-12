@@ -67,3 +67,5 @@ I'm writing out this Readme because I got a bit lost on what this project is mea
   - List websites
 - GET /api/hash_algos.json
   - List hash algorithms
+- GET /api/archive_contributors.json
+  - List archive contributors
