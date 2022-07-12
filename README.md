@@ -45,8 +45,10 @@ I'm writing out this Readme because I got a bit lost on what this project is mea
 - Database schema setup and migrations
 
 ### Possible endpoints
-- GET /api/view/submissions/fa/3748252
+- GET /api/view/submissions/fa/3748252.json
   - View that submission
+- GET /api/view/submissions/fa/3748252/snapshots
+  - View the snapshots that make up that submission
 - POST /api/ingest/faexport/submission
   - Post a submission to ingest it into the database
 - POST /api/ingest/faexport/user 
@@ -55,7 +57,9 @@ I'm writing out this Readme because I got a bit lost on what this project is mea
   - View a user data
 - GET /api/view/users/fa/
   - List all user IDs for site?
-- POST /api/hash_search/(algo) 
+- POST /api/hash_search/<algo_id>
+  - Post hash, get a list of matching submissions?
+- POST /api/hash_search/<algo_lang>/<algo_name>
   - Post hash, get a list of matching submissions?
 - GET /api/websites/
   - List websites
