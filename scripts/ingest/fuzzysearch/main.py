@@ -18,6 +18,8 @@ from faexport_db.models.website import Website
 FUZZYSEARCH_FILE = "./dump/fuzzysearch/fuzzysearch-dumps.csv"
 DATA_DATE = datetime.datetime(2022, 6, 22, 0, 0, 0, 0, datetime.timezone.utc)
 CONTRIBUTOR = ArchiveContributor("FuzzySearch data ingest")
+SHAHASH = HashAlgo("any", "sha256")
+DHASH = HashAlgo("rust", "dhash")
 
 
 @dataclasses.dataclass
@@ -66,11 +68,11 @@ def import_row(row: Dict[str, str]) -> Submission:
 
     dhash_bytes = int(hash_value).to_bytes(8, byteorder='big')
     hashes = [
-        FileHash("rust:dhash", dhash_bytes)
+        FileHash(DHASH.algo_id, dhash_bytes)
     ]
     if sha256:
         sha_bytes = base64.b64decode(sha256.encode('ascii'))
-        hashes.append(FileHash("sha256", sha_bytes))
+        hashes.append(FileHash(SHA_HASH.algo_id, sha_bytes))
 
     update = SubmissionSnapshot(
         website_id,
@@ -138,4 +140,5 @@ if __name__ == "__main__":
     # TODO: connect to database
     # TODO: Create websites from SITE_MAP
     # TODO: Save contributor
+    # TODO: Save SHA_HASH and DHASH
     ingest_csv()

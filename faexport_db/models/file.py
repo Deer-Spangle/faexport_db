@@ -26,7 +26,7 @@ class File:
         self.hashes = hashes or []
     
     @property
-    def hash_map_by_algo(self) -> Dict[str, FileHash]:
+    def hash_map_by_algo(self) -> Dict[int, FileHash]:
         return {file_hash.algo_id: file_hash for file_hash in self.hashes}
 
     def is_clashing(self, update: File) -> bool:
@@ -96,7 +96,7 @@ class File:
 class FileHash:
     def __init__(
             self,
-            algo_id: str,
+            algo_id: int,
             hash_value: bytes,
             *,
             file_id: int = None,
@@ -139,3 +139,35 @@ class FileHash:
                 hash_id=hash_id,
             ))
         return hashes
+
+
+class HashAlgo:
+
+    def __init__(
+        self,
+        language: str,
+        algorithm_name: str,
+        *,
+        algo_id: int = None
+    ):
+        self.language = language
+        self.algorithm_name = algorithm_name
+        self.algo_id = algo_id
+    
+    def _create(self, db: Database) -> None:
+        algo_rows = db.insert(
+            "WITH e AS ( "
+            "INSERT INTO hash_algos (language, algorithm_name) "
+            "VALUES (%s, %s) "
+            "ON CONFLICT (language, algorithm_name) DO NOTHING "
+            "RETURNING algo_id "
+            ") SELECT * FROM e "
+            "UNION SELECT algo_id FROM hash_algos "
+            "WHERE language = %s AND algorithm_name = %s",
+            (self.language, self.algorithm_name, self.language, self.algorithm_name)
+        )
+        self.algo_id = algo_rows[0][0]
+    
+    def save(self, db: Database) -> None:
+        if self.algo_id is None:
+            self.create_snapshot(db)

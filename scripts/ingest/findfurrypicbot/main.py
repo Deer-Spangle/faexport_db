@@ -7,7 +7,7 @@ from faexport_db.models.archive_contributor import ArchiveContributor
 import tqdm
 
 from faexport_db.db import Database
-from faexport_db.models.file import FileHash, FileListUpdate, FileUpdate, FileHashListUpdate, FileHashUpdate
+from faexport_db.models.file import FileHash, FileListUpdate, FileUpdate, FileHashListUpdate, FileHashUpdate, HashAlgo
 from faexport_db.models.submission import SubmissionSnapshot, SubmissionUpdate, Submission
 from scripts.ingest.fa_indexer.main import setup_initial_data
 
@@ -15,6 +15,10 @@ DB_LOCATION = "./dump/findfurrypicbot/fa_bin/fa_bin.sqlite3"
 SITE_ID = "fa"
 DATA_DATE = datetime.datetime(2020, 1, 9, 0, 0, 0, tzinfo=datetime.timezone.utc)
 CONTRIBUTOR = ArchiveContributor("FindFurryPicBot data ingest")
+AHASH = HashAlgo("python", "ahash")
+DHASH = HashAlgo("python", "dhash")
+PHASH = HashAlgo("python", "phash")
+WHASH = HashAlgo("python", "whash")
 
 
 def import_row(row: sqlite3.Row, db: Database) -> SubmissionSnapshot:
@@ -27,10 +31,10 @@ def import_row(row: sqlite3.Row, db: Database) -> SubmissionSnapshot:
             File(
                 None,
                 hashes=[
-                    FileHash("python:ahash", row["a_hash"]),
-                    FileHash("python:dhash", row["d_hash"]),
-                    FileHash("python:phash", row["p_hash"]),
-                    FileHash("python:whash", row["w_hash"]),
+                    FileHash(AHASH.algo_id, row["a_hash"]),
+                    FileHash(DHASH.algo_id, row["d_hash"]),
+                    FileHash(PHASH.algo_id, row["p_hash"]),
+                    FileHash(WHASH.algo_id, row["w_hash"]),
                 ]
             )
         ]
@@ -60,6 +64,10 @@ if __name__ == "__main__":
     db_conn = psycopg2.connect(db_dsn)
     db_obj = Database(db_conn)
     setup_initial_data(db_obj, CONTRIBUTOR)
+    AHASH.save(db)
+    DHASH.save(db)
+    PHASH.save(db)
+    WHASH.save(db)
 
     sqlite_conn = sqlite3.connect(DB_LOCATION)
     sqlite_conn.row_factory = sqlite3.Row

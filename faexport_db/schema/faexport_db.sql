@@ -110,7 +110,7 @@ create table submission_snapshot_files
 
 create table hash_algos
 (
-    algo_id        text not null
+    algo_id        serial
         constraint hash_algos_pk
             primary key,
     language       text,
