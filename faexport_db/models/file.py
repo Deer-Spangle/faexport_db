@@ -8,9 +8,9 @@ from faexport_db.db import Database, merge_dicts, json_to_db
 class File:
     def __init__(
             self,
-            file_id: int,
             site_file_id: Optional[str],
             *,
+            file_id: int = None,
             submission_snapshot_id: int = None,
             file_url: Optional[str] = None,
             file_size: Optional[int] = None,
@@ -82,8 +82,8 @@ class File:
             file_id, site_file_id, file_url, file_size, extra_data = file_row
             hashes = FileHash.list_for_file(db, file_id)
             files.append(File(
-                file_id,
                 site_file_id,
+                file_id=file_id,
                 submission_snapshot_id=submission_snapshot_id,
                 file_url=file_url,
                 file_size=file_size,
