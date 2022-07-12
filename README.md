@@ -47,21 +47,21 @@ I'm writing out this Readme because I got a bit lost on what this project is mea
 ### Possible endpoints
 - GET /api/view/submissions/fa/3748252.json
   - View that submission
-- GET /api/view/submissions/fa/3748252/snapshots
+- GET /api/view/submissions/fa/3748252/snapshots [TODO]
   - View the snapshots that make up that submission
-- POST /api/ingest/faexport/submission
+- POST /api/ingest/faexport/submission [TODO]
   - Post a submission to ingest it into the database
-- POST /api/ingest/faexport/user 
+- POST /api/ingest/faexport/user [TODO]
   - Post a user to ingest it into the database
-- GET /api/view/users/fa/dr-spangle 
+- GET /api/view/users/fa/dr-spangle.json
   - View a user data
-- GET /api/view/users/fa/
+- GET /api/view/users/fa.json
   - List all user IDs for site?
-- POST /api/hash_search/<algo_id>
+- POST /api/hash_search/<algo_id> [TODO]
   - Post hash, get a list of matching submissions?
-- POST /api/hash_search/<algo_lang>/<algo_name>
+- POST /api/hash_search/<algo_lang>/<algo_name> [TODO]
   - Post hash, get a list of matching submissions?
-- GET /api/websites/
+- GET /api/websites.json
   - List websites
-- GET /api/hash_algos/
+- GET /api/hash_algos.json
   - List hash algorithms
