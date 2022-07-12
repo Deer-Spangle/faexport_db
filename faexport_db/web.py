@@ -41,7 +41,7 @@ def view_submission(website_id: str, submission_id: str):
     submission = Submission.from_database(db, website.website_id, submission_id)
     if not submission:
         return {
-            "error": f"There is no entry for submission with the ID {submission_id} on {website.full_name}"
+            "error": f"There is no entry for a submission with the ID {submission_id} on {website.full_name}"
         }
     return {
         "error": None,
@@ -56,10 +56,10 @@ def view_user(website_id: str, user_id: str):
         return {
             "error": f"Website does not exist by ID: {website_id}"
         }
-    user = User.from_database(db, website_id)
+    user = User.from_database(db, website_id, user_id)
     if not user:
         return {
-            "error": f"There is no entry for submission with the ID {submission_id} on {website.full_name}"
+            "error": f"There is no entry for a user with the ID {user_id} on {website.full_name}"
         }
     return {
         "error": None,
