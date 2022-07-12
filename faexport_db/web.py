@@ -1,10 +1,19 @@
+import os
+
 from faexport_db.models.file import HashAlgo
 from faexport_db.models.website import Website
 from flask import Flask
 
 app = Flask(__name__)
 
-db = Database()
+dsn = os.getenv("DSN")
+if dsn is None:
+    with open("./config.json", "r") as f:
+        conf = json.load(f)
+    dsn = conf["db_conn"]
+db_conn = psycopg2.connect(db_dsn)
+db = Database(db_conn)
+
 
 @app.route('/')
 def hello():
