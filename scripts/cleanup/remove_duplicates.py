@@ -17,19 +17,22 @@ def remove_file_hash(db: Database, hash_id: int) -> None:
     )
 
 
-def scan_file_hashes(db: Database) -> None:
+def scan_file_hashes(db: Database) -> int:
     print("Scanning file hashes")
     hash_rows = db.select(
         "SELECT hash_id, file_id, algo_id FROM submission_snapshot_file_hashes", tuple()
     )
     index = set()
+    removed = 0
     for hash_row in tqdm.tqdm(hash_rows):
         index_entry = (hash_row[1], hash_row[2])
         if index_entry in index:
             print(f"Removing duplicate file hash, ID: {hash_row[0]}")
             remove_file_hash(db, hash_row[0])
+            removed += 1
         else:
             index.add(index_entry)
+    return removed
 
 
 def remove_file(db: Database, file_id: int) -> None:
@@ -39,19 +42,22 @@ def remove_file(db: Database, file_id: int) -> None:
     db.update("DELETE FROM submission_snapshot_files WHERE file_id = %s", (file_id,))
 
 
-def scan_files(db: Database) -> None:
+def scan_files(db: Database) -> int:
     print("Scanning files")
     file_rows = db.select(
         "SELECT file_id, submission_snapshot_id, site_file_id FROM submission_snapshot_files", tuple()
     )
     index = set()
+    removed = 0
     for file_row in tqdm.tqdm(file_rows):
         index_entry = (file_row[1], file_row[2])
         if index_entry in index:
             print(f"Removing duplicate file, ID: {file_row[0]}")
             remove_file(db, file_row[0])
+            removed += 1
         else:
             index.add(index_entry)
+    return removed
 
 
 def remove_submission(db: Database, sub_id: int) -> None:
@@ -68,20 +74,23 @@ def remove_submission(db: Database, sub_id: int) -> None:
     db.update("DELETE FROM submission_snapshots WHERE submission_snapshot_id = %s", (sub_id,))
 
 
-def scan_submissions(db: Database) -> None:
+def scan_submissions(db: Database) -> int:
     print("Scanning submissions")
     sub_rows = db.select(
         "SELECT submission_snapshot_id, website_id, site_submission_id, scan_datetime, archive_contributor_id "
         "FROM submission_snapshots", tuple()
     )
     index = set()
+    removed = 0
     for sub_row in tqdm.tqdm(sub_rows):
         index_entry = tuple(sub_row[1:])
         if index_entry in index:
             print(f"Removing duplicate submission, ID: {sub_row[0]}")
             remove_submission(db, sub_row[0])
+            removed += 1
         else:
             index.add(index_entry)
+    return removed
 
 
 def remove_user(db: Database, user_id: int) -> None:
@@ -90,20 +99,23 @@ def remove_user(db: Database, user_id: int) -> None:
     db.update("DELETE FROM user_snapshots WHERE user_snapshot_id = %s", (user_id,))
 
 
-def scan_users(db: Database) -> None:
+def scan_users(db: Database) -> int:
     print("Scanning users")
     user_rows = db.select(
         "SELECT user_snapshot_id, website_id, site_user_id, scan_datetime, archive_contributor_id FROM user_snapshots",
         tuple()
     )
     index = set()
+    removed = 0
     for user_row in tqdm.tqdm(user_rows):
         index_entry = tuple(user_row[1:])
         if index_entry in index:
             print(f"Removing duplicate user, ID: {user_row[0]}")
             remove_user(db, user_row[0])
+            removed += 1
         else:
             index.add(index_entry)
+    return removed
 
 
 if __name__ == "__main__":
@@ -113,7 +125,11 @@ if __name__ == "__main__":
     db_dsn = config["db_conn"]
     db_conn = psycopg2.connect(db_dsn)
     db_obj = Database(db_conn)
-    scan_users(db_obj)
-    scan_file_hashes(db_obj)
-    scan_files(db_obj)
-    scan_submissions(db_obj)
+    removed_users = scan_users(db_obj)
+    removed_hashes = scan_file_hashes(db_obj)
+    removed_files = scan_files(db_obj)
+    removed_submissions = scan_submissions(db_obj)
+    print(f"Removed users: {removed_users}")
+    print(f"Removed hashes: {removed_hashes}")
+    print(f"Removed files: {removed_files}")
+    print(f"Removed submissions: {removed_submissions}")
