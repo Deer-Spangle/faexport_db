@@ -24,9 +24,7 @@ create unique index archive_contributors_uindex
 create table user_snapshots
 (
     -- Keys
-    user_snapshot_id          serial
-        constraint users_pk
-            primary key,
+    user_snapshot_id          serial,
     website_id       text not null
         constraint users_websites_website_id_fk
             references websites,
@@ -47,9 +45,7 @@ create table user_snapshots
 create table submission_snapshots
 (
     -- Keys
-    submission_snapshot_id    serial
-        constraint submissions_pk
-            primary key,
+    submission_snapshot_id    serial,
     website_id       text    not null
         constraint submissions_websites_website_id_fk
             references websites,
@@ -74,12 +70,8 @@ create table submission_snapshots
 create table submission_snapshot_keywords
 (
     -- Keys
-    keyword_id       serial
-        constraint submission_keywords_pk
-            primary key,
-    submission_snapshot_id    int not null
-        constraint submission_snapshot_keywords_submission_id_fk
-            references submission_snapshots,
+    keyword_id       serial,
+    submission_snapshot_id    int not null,
     -- Type specific data
     keyword          text not null,
     ordinal          int
@@ -88,12 +80,8 @@ create table submission_snapshot_keywords
 create table submission_snapshot_files
 (
     -- Keys
-    file_id          serial
-        constraint files_pk
-            primary key,
-    submission_snapshot_id    int not null
-        constraint submission_snapshot_files_submission_id_fk
-            references submission_snapshots,
+    file_id          serial,
+    submission_snapshot_id    int not null,
     site_file_id     text,
     -- Type specific data
     file_url         text,
@@ -116,12 +104,8 @@ create unique index hash_algos_uindex
 
 create table submission_snapshot_file_hashes
 (
-    hash_id    serial
-        constraint file_hashes_pk
-            primary key,
-    file_id    int not null
-        constraint submission_snapshot_file_hashes_file_id_fk
-            references submission_snapshot_files,
+    hash_id    serial,
+    file_id    int not null,
     algo_id    int not null
         constraint submission_snapshot_file_hashes_algo_id_fk
             references hash_algos,
