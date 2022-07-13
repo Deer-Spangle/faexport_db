@@ -226,21 +226,15 @@ class SubmissionSnapshot:
 
     def create_snapshot(self, db: "Database") -> None:
         snapshot_rows = db.insert(
-            "WITH e AS ("
             "INSERT INTO submission_snapshots "
             "(website_id, site_submission_id, scan_datetime, archive_contributor_id, ingest_datetime, "
             "uploader_site_user_id, is_deleted, title, description, datetime_posted, keywords_recorded, extra_data) "
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
-            "ON CONFLICT (website_id, site_submission_id, scan_datetime, archive_contributor_id) DO NOTHING "
-            "RETURNING submission_snapshot_id "
-            ") SELECT * FROM e "
-            "UNION SELECT submission_snapshot_id FROM submission_snapshots "
-            "WHERE website_id = %s AND site_submission_id = %s AND scan_datetime = %s AND archive_contributor_id = %s",
+            "RETURNING submission_snapshot_id ",
             (
                 self.website_id, self.site_submission_id, self.scan_datetime, self.contributor.contributor_id,
                 self.ingest_datetime, self.uploader_site_user_id, self.is_deleted, self.title, self.description,
                 self.datetime_posted, self.keywords_recorded, json_to_db(self.extra_data),
-                self.website_id, self.site_submission_id, self.scan_datetime, self.contributor.contributor_id
             )
         )
         if not snapshot_rows:

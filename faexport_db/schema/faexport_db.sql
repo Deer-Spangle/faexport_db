@@ -44,9 +44,6 @@ create table user_snapshots
     extra_data       json
 );
 
-create unique index user_snapshots_uindex
-    on user_snapshots (website_id, site_user_id, scan_datetime, archive_contributor_id);
-
 create table submission_snapshots
 (
     -- Keys
@@ -73,9 +70,6 @@ create table submission_snapshots
     -- Site specific data
     extra_data       json
 );
-
-create unique index submission_snapshots_uindex
-    on submission_snapshots (website_id, site_submission_id, scan_datetime, archive_contributor_id);
 
 create table submission_snapshot_keywords
 (
@@ -108,9 +102,6 @@ create table submission_snapshot_files
     extra_data      json
 );
 
-create unique index submission_snapshot_files_unidex
-    on submission_snapshot_files (submission_snapshot_id, site_file_id);
-
 create table hash_algos
 (
     algo_id        serial
@@ -136,9 +127,6 @@ create table submission_snapshot_file_hashes
             references hash_algos,
     hash_value bytea not null
 );
-
-create unique index submission_snapshot_file_hashes_uindex
-    on submission_snapshot_file_hashes (file_id, algo_id);
 
 create table settings
 (
