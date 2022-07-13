@@ -5,9 +5,12 @@ import tqdm
 
 from faexport_db.db import Database
 
+DRY_RUN = True
+
 
 def remove_file_hash(db: Database, hash_id: int) -> None:
-    return
+    if DRY_RUN:
+        return
     db.update(
         "DELETE FROM submission_snapshot_file_hashes WHERE hash_id = %s",
         (hash_id,)
@@ -30,7 +33,8 @@ def scan_file_hashes(db: Database) -> None:
 
 
 def remove_file(db: Database, file_id: int) -> None:
-    return
+    if DRY_RUN:
+        return
     db.update("DELETE FROM submission_snapshot_file_hashes WHERE file_id = %s", (file_id,))
     db.update("DELETE FROM submission_snapshot_files WHERE file_id = %s", (file_id,))
 
@@ -51,7 +55,8 @@ def scan_files(db: Database) -> None:
 
 
 def remove_submission(db: Database, sub_id: int) -> None:
-    return
+    if DRY_RUN:
+        return
     file_rows = db.select(
         "SELECT file_id FROM submission_snapshot_files WHERE submission_snapshot_id = %s",
         (sub_id,)
@@ -80,7 +85,8 @@ def scan_submissions(db: Database) -> None:
 
 
 def remove_user(db: Database, user_id: int) -> None:
-    return
+    if DRY_RUN:
+        return
     db.update("DELETE FROM user_snapshots WHERE user_snapshot_id = %s", (user_id,))
 
 
