@@ -146,12 +146,6 @@ class UserSnapshot:
                 self.ingest_datetime, self.is_deleted, self.display_name, json_to_db(self.extra_data),
             )
         )
-        if not user_rows:
-            user_rows = db.select(
-                "SELECT user_snapshot_id FROM user_snapshots "
-                "WHERE website_id = %s AND site_user_id = %s AND scan_datetime = %s AND archive_contributor_id = %s",
-                (self.website_id, self.site_user_id, self.scan_datetime, self.contributor.contributor_id)
-            )
         self.user_snapshot_id = user_rows[0][0]
 
     def save(self, db: "Database") -> None:

@@ -247,10 +247,6 @@ class SubmissionSnapshot:
         self.submission_snapshot_id = snapshot_rows[0][0]
         # Save keywords
         if self.keywords is not None:
-            db.update(
-                "DELETE FROM submission_snapshot_keywords WHERE submission_snapshot_id = %s",
-                (self.submission_snapshot_id,)
-            )
             for keyword in self.keywords:
                 keyword.save(db, self.submission_snapshot_id)
         # Save files
