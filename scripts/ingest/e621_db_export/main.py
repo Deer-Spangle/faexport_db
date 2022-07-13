@@ -14,7 +14,7 @@ import tqdm
 from faexport_db.db import Database
 from faexport_db.models.website import Website
 
-CSV_LOCATION = "./dump/e621_db_export/posts-202-07-13"
+CSV_LOCATION = "./dump/e621_db_export/posts-2022-07-13.csv"
 WEBSITE = Website("e6", "e621", "https://e621.net")
 DATA_DATE = datetime.datetime(2022, 7, 13, 0, 0, 0, tzinfo=datetime.timezone.utc)
 CONTRIBUTOR = ArchiveContributor("e621 db_export")
