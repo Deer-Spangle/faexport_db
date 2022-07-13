@@ -35,7 +35,7 @@ def import_row(row: Dict[str, str], db: Database) -> Optional[SubmissionSnapshot
         is_deleted=is_deleted == "t",
         files=[
             File(
-                None,
+                None,  # TODO: add file name
                 hashes=[FileHash(MD5_HASH.algo_id, base64.b64decode(md5.encode('ascii')))],
                 file_size=file_size,
                 extra_data={
