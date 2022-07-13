@@ -1,5 +1,5 @@
 import json
-from typing import Tuple, List, Any, Optional, Dict
+from typing import Tuple, List, Any, Optional, Dict, TypeVar
 
 import psycopg2
 
@@ -18,6 +18,14 @@ def json_to_db(data: Optional[Dict[str, Any]]) -> Optional[str]:
     if data is None:
         return None
     return json.dumps(data)
+
+
+N = TypeVar("N")
+
+
+def chunks(lst: List[N], n: int) -> List[List[N]]:
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
 
 
 class Database:

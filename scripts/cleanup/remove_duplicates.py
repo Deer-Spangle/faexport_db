@@ -1,9 +1,10 @@
 import json
+from typing import List
 
 import psycopg2
 import tqdm
 
-from faexport_db.db import Database
+from faexport_db.db import Database, chunks
 
 DRY_RUN = True
 
@@ -99,6 +100,19 @@ def remove_user(db: Database, user_id: int) -> None:
     db.update("DELETE FROM user_snapshots WHERE user_snapshot_id = %s", (user_id,))
 
 
+def remove_users(db: Database, user_ids: List[int]) -> None:
+    if DRY_RUN:
+        return
+    chunk_size = 1000
+    chunk_count = (len(user_ids) // chunk_size) + 1
+    for user_ids_chunk in tqdm.tqdm(chunks(user_ids, chunk_size), total=chunk_count):
+        print(f"Removing {len(user_ids_chunk)} users")
+        db.update(
+            "DELETE FROM user_snapshots WHERE user_snapshot_id IN %s",
+            (tuple(user_ids_chunk),)
+        )
+
+
 def scan_users(db: Database) -> int:
     print("Scanning users")
     user_rows = db.select(
@@ -106,16 +120,16 @@ def scan_users(db: Database) -> int:
         tuple()
     )
     index = set()
-    removed = 0
+    remove_ids = []
     for user_row in tqdm.tqdm(user_rows):
         index_entry = tuple(user_row[1:])
         if index_entry in index:
-            print(f"Removing duplicate user, ID: {user_row[0]}")
-            remove_user(db, user_row[0])
-            removed += 1
+            print(f"Found duplicate user, ID: {user_row[0]}")
+            remove_ids.append(user_row[0])
         else:
             index.add(index_entry)
-    return removed
+    remove_users(db, remove_ids)
+    return len(remove_ids)
 
 
 if __name__ == "__main__":
