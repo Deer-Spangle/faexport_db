@@ -82,6 +82,7 @@ def list_users(website_id: str):
     return {
         "error": None,
         "data": {
+            "num_users": len(user_ids),
             "user_ids": user_ids
         }
     }
