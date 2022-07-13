@@ -27,45 +27,6 @@ CONTRIBUTOR = ArchiveContributor("fa-indexer data ingest")
 DONE_SIGNAL = "DONE"
 
 
-def import_submission_data(
-        db: Database,
-        submission_data: Dict,
-        site_id: str,
-        contributor: ArchiveContributor,
-        scan_date: datetime.datetime
-) -> SubmissionSnapshot:
-    if submission_data["id"] == 641877:
-        submission_data["description"] = submission_data["description"].replace("\0", "/0")
-    uploader_username = submission_data["username"]
-    user_snapshot = UserSnapshot(
-        site_id,
-        uploader_username,
-        contributor,
-        scan_date
-    )
-    user_snapshot.save(db)
-    snapshot = SubmissionSnapshot(
-        site_id,
-        str(submission_data["id"]),
-        contributor,
-        scan_date,
-        uploader_site_user_id=uploader_username,
-        title=submission_data["title"],
-        description=submission_data["description"],
-        datetime_posted=dateutil.parser.parse(submission_data["date"]),
-        extra_data={"rating": submission_data["rating"]},
-        ordered_keywords=submission_data["keywords"],
-        files=[
-            File(
-                None,
-                file_url=submission_data["filename"],
-            )
-        ]
-    )
-    snapshot.save(db)
-    return snapshot
-
-
 class Processor:
     def __init__(
             self,
@@ -84,6 +45,7 @@ class Processor:
         self.site_id = site_id
         self.contributor = contributor
         self.scan_date = scan_date
+        self.seen_usernames = set()
 
     def process_entries(
             self,
@@ -99,8 +61,46 @@ class Processor:
             # print(f"Importing submission: {submission_data['id']} in worker {self.num}")
             if submission_data == DONE_SIGNAL:
                 break
-            snapshot = import_submission_data(db, submission_data, self.site_id, self.contributor, self.scan_date)
+            snapshot = self.import_submission_data(db, submission_data)
             self.resp_queue.put(snapshot.site_submission_id)
+
+    def import_submission_data(
+            self,
+            db: Database,
+            submission_data: Dict,
+    ) -> SubmissionSnapshot:
+        if submission_data["id"] == 641877:
+            submission_data["description"] = submission_data["description"].replace("\0", "/0")
+        uploader_username = submission_data["username"]
+        if uploader_username not in self.seen_usernames:
+            self.seen_usernames.add(uploader_username)
+            user_snapshot = UserSnapshot(
+                self.site_id,
+                uploader_username,
+                self.contributor,
+                self.scan_date
+            )
+            user_snapshot.save(db)
+        snapshot = SubmissionSnapshot(
+            self.site_id,
+            str(submission_data["id"]),
+            self.contributor,
+            self.scan_date,
+            uploader_site_user_id=uploader_username,
+            title=submission_data["title"],
+            description=submission_data["description"],
+            datetime_posted=dateutil.parser.parse(submission_data["date"]),
+            extra_data={"rating": submission_data["rating"]},
+            ordered_keywords=submission_data["keywords"],
+            files=[
+                File(
+                    None,
+                    file_url=submission_data["filename"],
+                )
+            ]
+        )
+        snapshot.save(db)
+        return snapshot
 
 
 def scan_directory(dsn: str, dir_path: str) -> None:
