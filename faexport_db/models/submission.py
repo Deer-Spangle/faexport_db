@@ -240,8 +240,7 @@ class SubmissionSnapshot:
         self.submission_snapshot_id = snapshot_rows[0][0]
         # Save keywords
         if self.keywords is not None:
-            for keyword in self.keywords:
-                keyword.save(db, self.submission_snapshot_id)
+            SubmissionKeyword.save_batch(db, self.keywords, self.submission_snapshot_id)
         # Save files
         if self.files is not None:
             for file in self.files:
