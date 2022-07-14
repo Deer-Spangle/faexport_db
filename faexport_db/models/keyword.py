@@ -23,6 +23,13 @@ class SubmissionKeyword:
             "ordinal": self.ordinal
         }
 
+    @classmethod
+    def from_web_json(cls, web_data: Dict) -> "SubmissionKeyword":
+        return cls(
+            web_data["keyword"],
+            ordinal=web_data.get("ordinal"),
+        )
+
     def create_snapshot(self, db: "Database") -> None:
         keyword_rows = db.insert(
             "INSERT INTO submission_snapshot_keywords "
@@ -75,3 +82,15 @@ class SubmissionKeyword:
                 ordinal=ordinal
             ))
         return keywords
+    
+    @classmethod
+    def list_from_ordered_keywords(cls, ordered_keywords: List[str]) -> List["SubmissionKeyword"]:
+        return [
+            cls(keyword, ordinal=ordinal) for ordinal, keyword in enumerate(ordered_keywords)
+        ]
+    
+    @classmethod
+    def list_from_unordered_keywords(cls, unordered_keywords: List[str]) -> List["SubmissionKeyword"]:
+        return [
+            SubmissionKeyword(keyword) for keyword in unordered_keywords
+        ]

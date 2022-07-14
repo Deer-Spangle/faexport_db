@@ -218,14 +218,19 @@ class SubmissionSnapshot:
         self.datetime_posted = datetime_posted
         self.extra_data = extra_data
         self.keywords: Optional[List[SubmissionKeyword]] = keywords
+        if keywords is not None:
+            # Check keyword ordinals are unique
+            ordinals = set()
+            for keyword in keywords:
+                if keyword.ordinal is None:
+                    continue
+                if keyword.ordinal in ordinals:
+                    raise ValueError("Duplicate ordinal in keywords list")
+                ordinals.add(keyword.ordinal)
         if ordered_keywords is not None:
-            self.keywords = [
-                SubmissionKeyword(keyword, ordinal=ordinal) for ordinal, keyword in enumerate(ordered_keywords)
-            ]
+            self.keywords = SubmissionKeyword.list_from_ordered_keywords(ordered_keywords)
         if unordered_keywords is not None:
-            self.keywords = [
-                SubmissionKeyword(keyword) for keyword in unordered_keywords
-            ]
+            self.keywords = SubmissionKeyword.list_from_unordered_keywords(unordered_keywords)
         self.files: Optional[List[File]] = files
     
     @property
@@ -256,6 +261,33 @@ class SubmissionSnapshot:
                 "extra_data": self.extra_data,
             },
         }
+    
+    @classmethod
+    def from_web_json(cls, web_data: Dict, contributor: ArchiveContributor) -> "SubmissionSnapshot":
+        keywords = None
+        if "keywords" in web_data:
+            keywords = [SubmissionKeyword.from_web_json(keyword_data) for keyword_data in web_data["keywords"]]
+        if "ordered_keywords" in web_data:
+            keywords = SubmissionKeyword.list_from_ordered_keywords(web_data["ordered_keywords"])
+        if "unordered_keywords" in web_data:
+            keywords = SubmissionKeyword.list_from_unordered_keywords(web_data["unordered_keywords"])
+        files = None
+        if "files" in web_data:
+            files = [File.from_web_json(file_data) for file in web_data["files"]]
+        return SubmissionSnapshot(
+            web_data["website_id"],
+            web_data["site_submission_id"],
+            contributor,
+            dateutil.parser.parse(web_data["scan_datetime"]) if "scan_datetime" in web_data else None,
+            uploader_site_user_id=web_data.get("uploader_site_user_id"),
+            is_deleted=web_data.get("is_deleted", False),
+            title=web_data.get("title"),
+            description=web_data.get("description"),
+            datetime_posted=dateutil.parser.parse(web_data["datetime_posted"]) if "datetime_posted" in web_data else None,
+            extra_data=web_data.get("extra_data"),
+            keywords=keywords,
+            files=files,
+        )
 
     def create_snapshot(self, db: "Database") -> None:
         snapshot_rows = db.insert(

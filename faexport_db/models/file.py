@@ -36,6 +36,16 @@ class File:
             "extra_data": self.extra_data,
             "file_hashes": [file_hash.to_web_json() for file_hash in self.hashes],
         }
+    
+    @classmethod
+    def from_web_json(cls, web_data: Dict) -> "File":
+        return File(
+            web_data["site_file_id"],
+            file_url=web_data.get("file_url"),
+            file_size=web_data.get("file_size"),
+            extra_data=web_data.get("extra_data"),
+            hashes=[FileHash.from_web_json(hash_data) for hash_data in web_data.get("file_hashes", [])]
+        )
 
     def is_clashing(self, update: File) -> bool:
         if update.file_url is not None and self.file_url is not None and self.file_url != update.file_url:
@@ -124,6 +134,13 @@ class FileHash:
             "algo_id": self.algo_id,
             "hash_value": base64.b64encode(self.hash_value).decode(),
         }
+    
+    @classmethod
+    def from_web_json(cls, web_data: Dict) -> "FileHash":
+        return cls(
+            web_data["algo_id"],
+            base64.b64decode(web_data["hash_value"].encode('ascii'))
+        )
 
     def create_snapshot(self, db: Database) -> None:
         hash_rows = db.insert(
@@ -172,6 +189,7 @@ class HashAlgo:
         self.language = language
         self.algorithm_name = algorithm_name
         self.algo_id = algo_id
+        # TODO: Add some hash validation methods? Like, checking hash length. Especially important for web data
 
     def to_web_json(self) -> Dict:
         return {
