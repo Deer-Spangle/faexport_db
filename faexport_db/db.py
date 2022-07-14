@@ -1,6 +1,7 @@
 import json
 from typing import Tuple, List, Any, Optional, Dict, TypeVar
 
+import dateutil.parser
 import psycopg2
 
 
@@ -26,6 +27,12 @@ N = TypeVar("N")
 def chunks(lst: List[N], n: int) -> List[List[N]]:
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
+
+
+def parse_datetime(datetime_str: Optional[str]) -> Optional[datetime.datetime]:
+    if not datetime_str:
+        return None
+    return dateutil.parser.parse(datetime_str)
 
 
 class Database:

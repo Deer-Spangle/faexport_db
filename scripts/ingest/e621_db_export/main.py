@@ -12,7 +12,7 @@ from faexport_db.models.file import HashAlgo, File, FileHash
 from faexport_db.models.submission import SubmissionSnapshot
 import tqdm
 
-from faexport_db.db import Database
+from faexport_db.db import Database, parse_datetime
 from faexport_db.models.website import Website
 
 CSV_LOCATION = "./dump/e621_db_export/posts-2022-07-13.csv"
@@ -95,7 +95,7 @@ def import_row(row: List[str], db: Database) -> Optional[SubmissionSnapshot]:
             "parent_id": parent_id,  # TODO: really?
             "change_seq": change_seq,  # TODO: really?
             "approver_id": approver_id,  # TODO: really?
-            "updated_datetime": dateutil.parser.parse(updated_at) if updated_at else None,
+            "updated_datetime": parse_datetime(updated_at),
             "is_pending": is_pending == "t",  # TODO: really?
             "is_flagged": is_flagged == "t",  # TODO: really?
             "score": int(score),

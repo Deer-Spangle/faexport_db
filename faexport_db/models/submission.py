@@ -6,6 +6,7 @@ from faexport_db.db import (
     merge_dicts,
     Database,
     json_to_db,
+    parse_datetime,
 )
 from faexport_db.models.archive_contributor import ArchiveContributor
 from faexport_db.models.file import File
@@ -278,12 +279,12 @@ class SubmissionSnapshot:
             web_data["website_id"],
             web_data["site_submission_id"],
             contributor,
-            dateutil.parser.parse(web_data["scan_datetime"]) if "scan_datetime" in web_data else None,
+            parse_datetime(web_data.get("scan_datetime")),
             uploader_site_user_id=web_data.get("uploader_site_user_id"),
             is_deleted=web_data.get("is_deleted", False),
             title=web_data.get("title"),
             description=web_data.get("description"),
-            datetime_posted=dateutil.parser.parse(web_data["datetime_posted"]) if "datetime_posted" in web_data else None,
+            datetime_posted=parse_datetime(web_data.get("datetime_posted")),
             extra_data=web_data.get("extra_data"),
             keywords=keywords,
             files=files,
