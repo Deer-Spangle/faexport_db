@@ -1,13 +1,14 @@
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from faexport_db.db import Database
 
 
 class ArchiveContributor:
 
-    def __init__(self, name: str, *, contributor_id: int = None) -> None:
+    def __init__(self, name: str, *, contributor_id: int = None, api_key: str = None) -> None:
         self.name = name
         self.contributor_id = contributor_id
+        self.api_key = api_key
 
     def count_user_snapshots(self, db: Database) -> int:
         count_rows = db.select(
@@ -41,11 +42,12 @@ class ArchiveContributor:
         if self.contributor_id is None:
             contributor_rows = db.insert(
                 "WITH e AS ( "
-                "INSERT INTO archive_contributors (name) VALUES (%s) ON CONFLICT (name) DO NOTHING "
+                "INSERT INTO archive_contributors (name, api_key) VALUES (%s, %s) "
+                "ON CONFLICT (name) DO NOTHING "
                 "RETURNING contributor_id ) "
                 "SELECT * FROM e "
                 "UNION SELECT contributor_id FROM archive_contributors WHERE name = %s",
-                (self.name, self.name)
+                (self.name, self.api_key, self.name)
             )
             if not contributor_rows:
                 contributor_rows = db.select(
@@ -57,14 +59,30 @@ class ArchiveContributor:
     @classmethod
     def list_all(cls, db: Database) -> List["ArchiveContributor"]:
         contributor_rows = db.select(
-            "SELECT contributor_id, name FROM archive_contributors",
+            "SELECT contributor_id, name, api_key FROM archive_contributors",
             tuple()
         )
         contributors = []
         for contributor_row in contributor_rows:
-            contributor_id, name = contributor_row
+            contributor_id, name, api_key = contributor_row
             contributors.append(cls(
                 name,
-                contributor_id=contributor_id
+                contributor_id=contributor_id,
+                api_key=api_key
             ))
         return contributors
+
+    @classmethod
+    def from_database_by_api_key(cls, db: Database, api_key: str) -> Optional["ArchiveContributor"]:
+        contributor_rows = db.select(
+            "SELECT contributor_id, name FROM archive_contributors WHERE api_key = %s",
+            (api_key,)
+        )
+        if not contributor_rows:
+            return None
+        contributor_id, name = contributor_rows[0]
+        return cls(
+            name,
+            contributor_id=contributor_id,
+            api_key=api_key
+        )

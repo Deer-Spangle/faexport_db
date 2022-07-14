@@ -15,7 +15,8 @@ create table archive_contributors
     contributor_id serial
         constraint archive_contributors_pk
             primary key,
-    name            text not null
+    name            text not null,
+    api_key         text
 );
 
 create unique index archive_contributors_uindex
