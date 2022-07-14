@@ -6,34 +6,37 @@ import tqdm
 
 from faexport_db.db import Database, chunks
 
-DRY_RUN = True
+DRY_RUN = False
 
 
 def remove_file_hash(db: Database, hash_id: int) -> None:
     if DRY_RUN:
         return
-    db.update(
-        "DELETE FROM submission_snapshot_file_hashes WHERE hash_id = %s",
-        (hash_id,)
-    )
+    db.update("DELETE FROM submission_snapshot_file_hashes WHERE hash_id = %s", (hash_id,))
 
 
 def scan_file_hashes(db: Database) -> int:
     print("Scanning file hashes")
+    valid_file_ids = {row[0] for row in db.select("SELECT file_id FROM submission_snapshot_files", tuple())}
     hash_rows = db.select(
         "SELECT hash_id, file_id, algo_id FROM submission_snapshot_file_hashes", tuple()
     )
     index = set()
-    removed = 0
+    remove_ids = []
     for hash_row in tqdm.tqdm(hash_rows):
-        index_entry = (hash_row[1], hash_row[2])
-        if index_entry in index:
-            print(f"Removing duplicate file hash, ID: {hash_row[0]}")
-            remove_file_hash(db, hash_row[0])
-            removed += 1
+        hash_id, file_id, algo_id = hash_row
+        index_entry = (file_id, algo_id)
+        if file_id not in valid_file_ids:
+            print(f"Found orphaned file hash, ID: {hash_id}")
+            remove_ids.append(hash_id)
+        elif index_entry in index:
+            print(f"Removing duplicate file hash, ID: {hash_id}")
+            remove_ids.append(hash_id)
         else:
             index.add(index_entry)
-    return removed
+    for remove_id in remove_ids:
+        remove_file_hash(db, remove_id)
+    return len(remove_ids)
 
 
 def remove_file(db: Database, file_id: int) -> None:
@@ -45,20 +48,49 @@ def remove_file(db: Database, file_id: int) -> None:
 
 def scan_files(db: Database) -> int:
     print("Scanning files")
+    valid_sub_ids = {row[0] for row in db.select("SELECT submission_snapshot_id FROM submission_snapshots", tuple())}
     file_rows = db.select(
         "SELECT file_id, submission_snapshot_id, site_file_id FROM submission_snapshot_files", tuple()
     )
     index = set()
-    removed = 0
+    remove_ids = []
     for file_row in tqdm.tqdm(file_rows):
-        index_entry = (file_row[1], file_row[2])
-        if index_entry in index:
-            print(f"Removing duplicate file, ID: {file_row[0]}")
-            remove_file(db, file_row[0])
-            removed += 1
+        file_id, sub_id, site_file_id = file_row
+        index_entry = (sub_id, site_file_id)
+        if sub_id not in valid_sub_ids:
+            print(f"Removing orphaned file, ID: {file_id}")
+            remove_ids.append(file_id)
+        elif index_entry in index:
+            print(f"Removing duplicate file, ID: {file_id}")
+            remove_ids.append(file_id)
         else:
             index.add(index_entry)
-    return removed
+    for file_id in remove_ids:
+        remove_file(db, file_id)
+    return len(remove_ids)
+
+
+def remove_keyword(db: Database, keyword_id: int) -> None:
+    if DRY_RUN:
+        return
+    db.update("DELETE FROM submission_snapshot_keywords WHERE keyword_id = %s", (keyword_id,))
+
+
+def scan_keywords(db: Database) -> int:
+    print("Scanning keywords")
+    valid_sub_ids = {row[0] for row in db.select("SELECT submission_snapshot_id FROM submission_snapshots", tuple())}
+    keyword_rows = db.select(
+        "SELECT keyword_id, submission_snapshot_id FROM submission_snapshot_keywords", tuple()
+    )
+    remove_ids = []
+    for keyword_row in tqdm.tqdm(keyword_rows):
+        keyword_id, sub_id = keyword_row
+        if sub_id not in valid_sub_ids:
+            print(f"Removing orphaned keyword, ID: {keyword_id}")
+            remove_ids.append(keyword_id)
+    for keyword_id in remove_ids:
+        remove_keyword(db, keyword_id)
+    return len(remove_ids)
 
 
 def remove_submission(db: Database, sub_id: int) -> None:
@@ -142,8 +174,10 @@ if __name__ == "__main__":
     removed_users = scan_users(db_obj)
     removed_hashes = scan_file_hashes(db_obj)
     removed_files = scan_files(db_obj)
+    removed_keywords = scan_keywords(db_obj)
     removed_submissions = scan_submissions(db_obj)
     print(f"Removed users: {removed_users}")
     print(f"Removed hashes: {removed_hashes}")
+    print(f"Removed keywords: {removed_keywords}")
     print(f"Removed files: {removed_files}")
     print(f"Removed submissions: {removed_submissions}")
