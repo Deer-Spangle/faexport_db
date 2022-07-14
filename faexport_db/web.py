@@ -36,15 +36,20 @@ def view_submission(website_id: str, submission_id: str):
     website = Website.from_database(db, website_id)
     if not website:
         return {
-            "error": f"Website does not exist by ID: {website_id}"
-        }
+            "error": {
+                "code": 404,
+                "message": f"Website does not exist by ID: {website_id}"
+            }
+        }, 404
     submission = Submission.from_database(db, website.website_id, submission_id)
     if not submission:
         return {
-            "error": f"There is no entry for a submission with the ID {submission_id} on {website.full_name}"
-        }
+            "error": {
+                "code": 404,
+                "message": f"There is no entry for a submission with the ID {submission_id} on {website.full_name}"
+            }
+        }, 404
     return {
-        "error": None,
         "data": submission.to_web_json()
     }
 
@@ -54,15 +59,20 @@ def view_user(website_id: str, user_id: str):
     website = Website.from_database(db, website_id)
     if not website:
         return {
-            "error": f"Website does not exist by ID: {website_id}"
-        }
+            "error": {
+                "code": 404,
+                "message": f"Website does not exist by ID: {website_id}"
+            }
+        }, 404
     user = User.from_database(db, website_id, user_id)
     if not user:
         return {
-            "error": f"There is no entry for a user with the ID {user_id} on {website.full_name}"
-        }
+            "error": {
+                "code": 404,
+                "message": f"There is no entry for a user with the ID {user_id} on {website.full_name}"
+            }
+        }, 404
     return {
-        "error": None,
         "data": user.to_web_json()
     }
 
@@ -72,15 +82,17 @@ def list_users(website_id: str):
     website = Website.from_database(db, website_id)
     if not website:
         return {
-            "error": f"Website does not exist by ID: {website_id}"
-        }
+            "error": {
+                "code": 404,
+                "message": f"Website does not exist by ID: {website_id}"
+            }
+        }, 404
     user_rows = db.select(
         "SELECT DISTINCT site_user_id FROM user_snapshots WHERE website_id = %s",
         (website.website_id,)
     )
     user_ids = [user_row[0] for user_row in user_rows]
     return {
-        "error": None,
         "data": {
             "num_users": len(user_ids),
             "user_ids": user_ids
@@ -92,7 +104,6 @@ def list_users(website_id: str):
 def list_websites() -> Dict:
     websites = Website.list_all(db)
     return {
-        "error": None,
         "data": {
             "websites": [website.to_web_json(db) for website in websites]
         }
@@ -103,7 +114,6 @@ def list_websites() -> Dict:
 def list_hash_algos() -> Dict:
     hash_algos = HashAlgo.list_all(db)
     return {
-        "error": None,
         "data": {
             "hash_algos": [hash_algo.to_web_json() for hash_algo in hash_algos]
         }
@@ -114,7 +124,6 @@ def list_hash_algos() -> Dict:
 def list_archive_contributors() -> Dict:
     contributors = ArchiveContributor.list_all(db)
     return {
-        "error": None,
         "data": {
             "archive_contributors": [contributor.to_web_json(db) for contributor in contributors]
         }
