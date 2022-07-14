@@ -4,7 +4,7 @@ import dataclasses
 import datetime
 import json
 import string
-from typing import Dict, Callable
+from typing import Dict, Callable, Optional, List
 
 import dateutil.parser
 import psycopg2
@@ -30,19 +30,123 @@ DHASH = HashAlgo("rust", "dhash")
 class SiteConfig:
     website: Website
     ingest_artist: bool
-    username_lookup: Callable[[str, str, Database], str] = lambda username, sub_id, db: username
+    user_lookup: Callable[
+        [str, str, ArchiveContributor, datetime.datetime], Optional[List[UserSnapshot]]
+    ] = lambda display_name, sub_id, contributor, scan_datetime: None
 
 
+FA_ID = "fa"
+WEASYL_ID = "weasyl"
+
+
+class WeasylLookup:
+    username_chars = string.ascii_letters + string.digits
+
+    def __init__(self):
+        self.cache: Dict[str, List[UserSnapshot]] = {}
+
+    def get_user_snapshots(
+            self,
+            display_name: str,
+            submission_id: str,
+            contributor: ArchiveContributor,
+            scan_datetime: datetime.datetime
+    ) -> List[UserSnapshot]:
+        if display_name in self.cache:
+            return self.cache[display_name]
+        username_guess = "".join([char for char in display_name.lower() if char in self.username_chars])
+        # Fetch weasyl user response
+        try:
+            resp = requests.get(f"https://weasyl.com/api/users/{username_guess}/view").json()
+            site_username = resp["login_name"]
+            site_display_name = resp["username"]
+            if display_name == site_display_name:
+                snapshots = [
+                    UserSnapshot(
+                        WEASYL_ID,
+                        site_username,
+                        contributor,
+                        scan_datetime,
+                        display_name=display_name
+                    ),
+                    UserSnapshot(
+                        WEASYL_ID,
+                        site_username,
+                        contributor,
+                        datetime.datetime.now(datetime.timezone.utc),
+                        display_name=site_display_name,
+                        extra_data={
+                            "catchphrase": resp["cachephrase"],
+                            "profile_text": resp["profile_text"],
+                            "stream_text": resp["stream_text"],  # TODO: really?
+                            "show_favorites_bar": resp["show_favorites_bar"],  # TODO: really?
+                            "show_favorites_tab": resp["show_favorites_tab"],  # TODO: really?
+                            "banned": resp["banned"],
+                            "suspended": resp["suspended"],
+                            "streaming_status": resp["streaming_status"],  # TODO: really?
+                            "created_at": dateutil.parser.parse(resp["created_at"]),
+                            "media": resp["media"],  # TODO: really?
+                            "full_name": resp["full_name"],
+                            "folders": resp["folders"],
+                            "commission_info": resp["commission_info"],
+                            "recent_type": resp["recent_type"],  # TODO: what?
+                            "featured_submission": resp["featured_submission"],  # TODO: what structure? site ID?
+                            "statistics": resp["statistics"],  # TODO: pull apart?
+                        }
+                    )
+                ]
+                self.cache[display_name] = snapshots
+                return snapshots
+        except Exception:
+            pass
+        resp = requests.get(f"https://weasyl.com/api/submission/{submission_id}/view").json()
+        site_username = resp["owner_login"]
+        site_display_name = resp["owner"]
+        snapshots = [
+            UserSnapshot(
+                WEASYL_ID,
+                site_username,
+                contributor,
+                scan_datetime,
+                display_name=display_name
+            ),
+            UserSnapshot(
+                WEASYL_ID,
+                site_username,
+                contributor,
+                datetime.datetime.now(datetime.timezone.utc),
+                display_name=site_display_name,
+                extra_data={
+
+                }
+            )
+        ]
+        self.cache[display_name] = snapshots
+        self.cache[site_display_name] = snapshots
+        return snapshots
+
+
+WEASYL_LOOKUP = WeasylLookup()
 SITE_CONFIG = {
     "furaffinity": SiteConfig(
-        Website("fa", "Fur Affinity", "https://furaffinity.net"),
+        Website(FA_ID, "Fur Affinity", "https://furaffinity.net"),
         True,
-        lambda username, _, __: username.replace("_", "").lower()
+        lambda display_name, sub_id, contributor, scan_datetime: [
+            UserSnapshot(
+                FA_ID,
+                display_name.replace("_", ""),
+                contributor,
+                scan_datetime,
+                display_name=display_name
+            )
+        ]
     ),
     "weasyl": SiteConfig(
-        Website("weasyl", "Weasyl", "https://weasyl.com"),
+        Website(WEASYL_ID, "Weasyl", "https://weasyl.com"),
         True,
-        lambda username, sub_id, db: get_weasyl_username(username, sub_id, db)
+        lambda display_name, sub_id, contributor, scan_datetime: WEASYL_LOOKUP.get_user_snapshots(
+            display_name, sub_id, contributor, scan_datetime
+        )
     ),
     "e621": SiteConfig(
         Website("e621", "e621", "https://e621.net"),
@@ -51,62 +155,20 @@ SITE_CONFIG = {
 }
 
 
-WEASYL_LOOKUP = {}
-def get_weasyl_username(display_name: str, submission_id: str, db: Database) -> str:
-    if display_name in WEASYL_LOOKUP:
-        return WEASYL_LOOKUP[display_name]
-    username_guess = "".join([char for char in display_name.lower() if char in string.ascii_letters + string.digits])
-    # Fetch weasyl user page
-    try:
-        # Check display name on guessed user page
-        resp = requests.get(f"https://weasyl.com/~{username_guess}")
-        body = resp.content.decode("utf-8")
-        site_display_name = body.split("<title>")[1].split("’s profile — Weasyl</title>")[0]
-        # If display name is correct on page, return username from page
-        if display_name == site_display_name:
-            site_username = body.split("<link rel=\"canonical\" href=\"https://www.weasyl.com/~")[1].split("\" />")[0]
-            WEASYL_LOOKUP[display_name] = site_username
-            return site_username
-    except Exception:
-        pass
-    # Else, get submission page, and get username and display name from there
-    submission_url = f"https://weasyl.com/~username/submissions/{submission_id}/"
-    resp = requests.get(submission_url)
-    body = resp.content.decode("utf-8")
-    site_user_tag = body.split("<div id=\"db-user\">")[1].split("<a class=\"username\" href=\"/~")[1].split("</a>")[0]
-    site_username, site_display_name = site_user_tag.split("\">")
-    WEASYL_LOOKUP[display_name] = site_username
-    WEASYL_LOOKUP[site_display_name] = site_username
-    user_snapshot = UserSnapshot(
-        SITE_CONFIG["weasyl"].website.website_id,
-        site_username,
-        CONTRIBUTOR,
-        display_name=site_display_name,
-    )
-    user_snapshot.save(db)
-    return site_username
-
-
 def import_row(row: Dict[str, str], db: Database) -> SubmissionSnapshot:
     site, submission_id, artists, hash_value, posted_at, updated_at, sha256, deleted, content_url = row.values()
     site_config = SITE_CONFIG[site]
     website_id = site_config.website.website_id
-    ingest_date = csv_earliest_date()
+    scan_date = csv_earliest_date()
     if updated_at:
-        ingest_date = dateutil.parser.parse(updated_at)
+        scan_date = dateutil.parser.parse(updated_at)
 
     uploader_username = None
     if site_config.ingest_artist:
-        username = site_config.username_lookup(artists, submission_id, db)
-        uploader = UserSnapshot(
-            website_id,
-            username,
-            CONTRIBUTOR,
-            ingest_date,
-            display_name=artists
-        )
-        uploader.save(db)
-        uploader_username = uploader.site_user_id
+        user_snapshots = site_config.user_lookup(artists, submission_id, CONTRIBUTOR, scan_date)
+        for user_snapshot in user_snapshots:
+            user_snapshot.save(db)
+            uploader_username = user_snapshot.site_user_id
 
     dhash_bytes = int(hash_value).to_bytes(8, byteorder='big')
     hashes = [
