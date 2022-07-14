@@ -55,6 +55,8 @@ I'm writing out this Readme because I got a bit lost on what this project is mea
   - Post a user to ingest it into the database
 - GET /api/view/users/fa/dr-spangle.json
   - View a user data
+- GET /api/view/users/fa/dr-spangle/snapshots.json [TODO]
+  - View the snapshots that make up that user
 - GET /api/view/users/fa.json
   - List all user IDs for site?
 - POST /api/hash_search/<algo_id> [TODO]
