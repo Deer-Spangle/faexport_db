@@ -115,20 +115,30 @@ def list_users(website_id: str):
 
 @app.route("/api/ingest/submission", methods=["POST"])
 def ingest_submission_snapshot():
+    api_key = request.headers.get("X-API-Key")
+    if not api_key:
+        return error_resp(403, "An API key is required to access this service")
+    contributor = ArchiveContributor.from_database_by_api_key(db, api_key)
+    if contributor is None:
+        return error_resp(403, "Invalid API key")
     web_data = request.json
     if not web_data:
         return error_resp(400, "Submission snapshot data must be posted as json")
-    contributor = None  # TODO: Implement some auth
     snapshot = SubmissionSnapshot.from_web_json(web_data, contributor)
     snapshot.save(db)
 
 
 @app.route("/api/ingest/user", methods=["POST"])
 def ingest_user_snapshot():
+    api_key = request.headers.get("X-API-Key")
+    if not api_key:
+        return error_resp(403, "An API key is required to access this service")
+    contributor = ArchiveContributor.from_database_by_api_key(db, api_key)
+    if contributor is None:
+        return error_resp(403, "Invalid API key")
     web_data = request.json
     if not web_data:
         return error_resp(400, "User snapshot data must be posted as json")
-    contributor = None  # TODO: Implement some auth
     snapshot = UserSnapshot.from_web_json(web_data, contributor)
     snapshot.save(db)
 
