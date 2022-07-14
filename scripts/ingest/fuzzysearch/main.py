@@ -85,7 +85,7 @@ class WeasylLookup:
                             "suspended": resp["suspended"],
                             "streaming_status": resp["streaming_status"],  # TODO: really?
                             "created_at": dateutil.parser.parse(resp["created_at"]),
-                            "media": resp["media"],  # TODO: really?
+                            "media": resp["media"],  # TODO: Pull apart structure?
                             "full_name": resp["full_name"],
                             "folders": resp["folders"],
                             "commission_info": resp["commission_info"],
@@ -117,7 +117,7 @@ class WeasylLookup:
                 datetime.datetime.now(datetime.timezone.utc),
                 display_name=site_display_name,
                 extra_data={
-
+                    "media": resp["owner_media"]  # TODO: Pull apart structure?
                 }
             )
         ]
