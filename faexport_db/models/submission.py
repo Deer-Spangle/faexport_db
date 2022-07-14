@@ -123,6 +123,14 @@ class Submission:
             }
         }
 
+    def to_web_snapshots_json(self) -> Dict:
+        return {
+            "website_id": self.website_id,
+            "site_submission_id": self.site_submission_id,
+            "snapshot_count": len(self.snapshots),
+            "snapshots": [snapshot.to_web_json() for snapshot in self.sorted_snapshots]
+        }
+
     @classmethod
     def from_database(
         cls, db: "Database", website_id: str, site_submission_id: str
@@ -223,6 +231,31 @@ class SubmissionSnapshot:
     @property
     def keywords_recorded(self) -> bool:
         return self.keywords is not None
+    
+    def to_web_json(self) -> Dict:
+        keywords = None
+        if self.keywords_recorded:
+            keywords = [keyword.to_web_json() for keyword in self.keywords]
+        return {
+            "submission_snapshot_id": self.submission_snapshot_id,
+            "website_id": self.website_id,
+            "site_submission_id": self.site_submission_id,
+            "cache_data":{
+                "scan_datetime": self.scan_datetime,
+                "archive_contributor": self.contributor.to_web_json(),
+                "ingest_datetime": self.ingest_datetime,
+            },
+            "submission_data": {
+                "uploader_site_user_id": self.uploader_site_user_id,
+                "is_deleted": self.is_deleted,
+                "title": self.title,
+                "description": self.description,
+                "datetime_posted": self.datetime_posted,
+                "keywords": keywords,
+                "files": [file.to_web_json() for file in self.files],
+                "extra_data": self.extra_data,
+            },
+        }
 
     def create_snapshot(self, db: "Database") -> None:
         snapshot_rows = db.insert(

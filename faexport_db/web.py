@@ -54,6 +54,29 @@ def view_submission(website_id: str, submission_id: str):
     }
 
 
+@app.route("/api/view/submissions/<website_id>/<submission_id>/snapshots.json")
+def view_submission_snapshots(website_id: str, submission_id: str):
+    website = Website.from_database(db, website_id)
+    if not website:
+        return {
+            "error": {
+                "code": 404,
+                "message": f"Website does not exist by ID: {website_id}"
+            }
+        }, 404
+    submission = Submission.from_database(db, website.website_id, submission_id)
+    if not submission:
+        return {
+            "error": {
+                "code": 404,
+                "message": f"There are no snapshots for a submission with the ID {submission_id} on {website.full_name}"
+            }
+        }, 404
+    return {
+        "data": submission.to_web_snapshots_json()
+    }
+
+
 @app.route("/api/view/users/<website_id>/<user_id>.json")
 def view_user(website_id: str, user_id: str):
     website = Website.from_database(db, website_id)
@@ -74,6 +97,29 @@ def view_user(website_id: str, user_id: str):
         }, 404
     return {
         "data": user.to_web_json()
+    }
+
+
+@app.route("/api/view/users/<website_id>/<user_id>/snapshots.json")
+def view_user(website_id: str, user_id: str):
+    website = Website.from_database(db, website_id)
+    if not website:
+        return {
+            "error": {
+                "code": 404,
+                "message": f"Website does not exist by ID: {website_id}"
+            }
+        }, 404
+    user = User.from_database(db, website_id, user_id)
+    if not user:
+        return {
+            "error": {
+                "code": 404,
+                "message": f"There are no snapshots for a user with the ID {user_id} on {website.full_name}"
+            }
+        }, 404
+    return {
+        "data": user.to_web_snapshots_json()
     }
 
 

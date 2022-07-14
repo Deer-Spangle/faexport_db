@@ -27,13 +27,15 @@ class ArchiveContributor:
             return count_rows[0][0]
         return 0
 
-    def to_web_json(self, db: Database) -> Dict:
-        return {
+    def to_web_json(self, db: Optional[Database] = None) -> Dict:
+        data = {
             "contributor_id": self.contributor_id,
             "name": self.name,
-            "num_user_snapshots": self.count_user_snapshots(db),
-            "num_submission_snapshots": self.count_submission_snapshots(db),
         }
+        if db:
+            data["num_user_snapshots"] = self.count_user_snapshots(db)
+            data["num_submission_snapshots"] = self.count_submission_snapshots(db)
+        return data
 
     def save(self, db: Database) -> None:
         if self.contributor_id is None:

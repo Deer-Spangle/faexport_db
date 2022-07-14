@@ -63,6 +63,14 @@ class User:
             }
         }
 
+    def to_web_snapshots_json(self) -> Dict:
+        return {
+            "website_id": self.website_id,
+            "site_user_id": self.site_user_id,
+            "snapshot_count": len(self.snapshots),
+            "snapshots": [snapshot.to_web_json() for snapshot in self.sorted_snapshots]
+        }
+
     @classmethod
     def from_database(
         cls, db: "Database", website_id: str, site_user_id: str
@@ -125,7 +133,6 @@ class UserSnapshot:
         self.website_id = website_id
         self.site_user_id = site_user_id
         self.scan_datetime = scan_datetime or datetime.datetime.now(datetime.timezone.utc)
-        self.scan_datetime_set = scan_datetime is not None
         self.contributor = contributor
 
         self.user_snapshot_id = user_snapshot_id
@@ -133,6 +140,23 @@ class UserSnapshot:
         self.is_deleted = is_deleted
         self.display_name = display_name
         self.extra_data = extra_data
+    
+    def to_web_json(self) -> Dict:
+        return {
+            "user_snapshot_id": self.user_snapshot_id,
+            "website_id": self.website_id,
+            "site_user_id": self.site_user_id,
+            "cache_data": {
+                "scan_datetime": self.scan_datetime,
+                "archive_contributor": self.contributor.to_web_json(),
+                "ingest_datetime": self.ingest_datetime,
+            },
+            "user_data": {
+                "is_deleted": self.is_deleted,
+                "display_name": self.display_name,
+                "extra_data": self.extra_data,
+            },
+        }
 
     def create_snapshot(self, db: "Database") -> None:
         user_rows = db.insert(

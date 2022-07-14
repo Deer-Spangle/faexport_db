@@ -47,7 +47,7 @@ I'm writing out this Readme because I got a bit lost on what this project is mea
 ### Possible endpoints
 - GET /api/view/submissions/fa/3748252.json
   - View that submission
-- GET /api/view/submissions/fa/3748252/snapshots [TODO]
+- GET /api/view/submissions/fa/3748252/snapshots.json
   - View the snapshots that make up that submission
 - POST /api/ingest/submission [TODO]
   - Post a submission snapshot to ingest it into the database
@@ -59,7 +59,7 @@ I'm writing out this Readme because I got a bit lost on what this project is mea
   - Post user data in a predefined format, to ingest it as a user snapshot
 - GET /api/view/users/fa/dr-spangle.json
   - View a user data
-- GET /api/view/users/fa/dr-spangle/snapshots.json [TODO]
+- GET /api/view/users/fa/dr-spangle/snapshots.json
   - View the snapshots that make up that user
 - GET /api/view/users/fa.json
   - List all user IDs for site?
