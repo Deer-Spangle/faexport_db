@@ -1,18 +1,41 @@
 import json
 import os
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Type
 
 import psycopg2
+from werkzeug.routing import BaseConverter, ValidationError
 
 from faexport_db.db import Database
+from faexport_db.ingest_formats.base import SimpleUserSnapshot, SimpleSubmissionSnapshot, BaseFormat
+from faexport_db.ingest_formats.faexport import FAExportUser, FAExportSubmission
 from faexport_db.models.archive_contributor import ArchiveContributor
 from faexport_db.models.file import HashAlgo
-from faexport_db.models.submission import Submission, SubmissionSnapshot
-from faexport_db.models.user import User, UserSnapshot
+from faexport_db.models.submission import Submission
+from faexport_db.models.user import User
 from faexport_db.models.website import Website
 from flask import Flask, request
 
+
+class IngestionFormatConverter(BaseConverter):
+    """Extracts an ingestion format from the path and returns an ingestion formatter"""
+    format_classes = [SimpleUserSnapshot, SimpleSubmissionSnapshot, FAExportUser, FAExportSubmission]
+    regex = "|".join(klass.format_name for klass in format_classes)
+
+    def to_python(self, value: str) -> Type[BaseFormat]:
+        format_map = {klass.format_name: klass for klass in self.format_classes}
+        klass = format_map.get(value)
+        if klass:
+            return klass
+        raise ValidationError()
+
+    def to_url(self, value: Type[BaseFormat]) -> str:
+        if isinstance(value.format_name, str):
+            return str(value.format_name)
+        raise ValidationError()
+
+
 app = Flask(__name__)
+app.url_map.converters["ingest_format"] = IngestionFormatConverter
 
 dsn = os.getenv("DSN")
 if dsn is None:
@@ -113,8 +136,8 @@ def list_users(website_id: str):
     }
 
 
-@app.route("/api/ingest/submission", methods=["POST"])
-def ingest_submission_snapshot():
+@app.route("/api/ingest/<ingest_format:formatter>", methods=["POST"])
+def ingest_data(formatter: BaseFormat):
     api_key = request.headers.get("X-API-Key")
     if not api_key:
         return error_resp(403, "An API key is required to access this service")
@@ -124,23 +147,11 @@ def ingest_submission_snapshot():
     web_data = request.json
     if not web_data:
         return error_resp(400, "Submission snapshot data must be posted as json")
-    snapshot = SubmissionSnapshot.from_web_json(web_data, contributor)
-    snapshot.save(db)
-
-
-@app.route("/api/ingest/user", methods=["POST"])
-def ingest_user_snapshot():
-    api_key = request.headers.get("X-API-Key")
-    if not api_key:
-        return error_resp(403, "An API key is required to access this service")
-    contributor = ArchiveContributor.from_database_by_api_key(db, api_key)
-    if contributor is None:
-        return error_resp(403, "Invalid API key")
-    web_data = request.json
-    if not web_data:
-        return error_resp(400, "User snapshot data must be posted as json")
-    snapshot = UserSnapshot.from_web_json(web_data, contributor)
-    snapshot.save(db)
+    format_resp = formatter.format_web_data(web_data, contributor)
+    for snapshot in format_resp.submission_snapshots:
+        snapshot.save(db)
+    for snapshot in format_resp.user_snapshots:
+        snapshot.save(db)
 
 
 @app.route("/api/websites.json")
