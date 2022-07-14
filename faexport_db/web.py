@@ -1,16 +1,16 @@
 import json
 import os
-from typing import Dict
+from typing import Dict, Tuple
 
 import psycopg2
 
 from faexport_db.db import Database
 from faexport_db.models.archive_contributor import ArchiveContributor
 from faexport_db.models.file import HashAlgo
-from faexport_db.models.submission import Submission
-from faexport_db.models.user import User
+from faexport_db.models.submission import Submission, SubmissionSnapshot
+from faexport_db.models.user import User, UserSnapshot
 from faexport_db.models.website import Website
-from flask import Flask
+from flask import Flask, request
 
 app = Flask(__name__)
 
@@ -21,6 +21,15 @@ if dsn is None:
     dsn = conf["db_conn"]
 db_conn = psycopg2.connect(dsn)
 db = Database(db_conn)
+
+
+def error_resp(code: int, message: str) -> Tuple[Dict, int]:
+    return {
+        "error": {
+            "code": code,
+            "message": message
+        }
+    }, code
 
 
 @app.route('/')
@@ -35,20 +44,10 @@ def hello():
 def view_submission(website_id: str, submission_id: str):
     website = Website.from_database(db, website_id)
     if not website:
-        return {
-            "error": {
-                "code": 404,
-                "message": f"Website does not exist by ID: {website_id}"
-            }
-        }, 404
+        return error_resp(404, f"Website does not exist by ID: {website_id}")
     submission = Submission.from_database(db, website.website_id, submission_id)
     if not submission:
-        return {
-            "error": {
-                "code": 404,
-                "message": f"There is no entry for a submission with the ID {submission_id} on {website.full_name}"
-            }
-        }, 404
+        return error_resp(404, f"There is no entry for a submission with the ID {submission_id} on {website.full_name}")
     return {
         "data": submission.to_web_json()
     }
@@ -58,20 +57,13 @@ def view_submission(website_id: str, submission_id: str):
 def view_submission_snapshots(website_id: str, submission_id: str):
     website = Website.from_database(db, website_id)
     if not website:
-        return {
-            "error": {
-                "code": 404,
-                "message": f"Website does not exist by ID: {website_id}"
-            }
-        }, 404
+        return error_resp(404, f"Website does not exist by ID: {website_id}")
     submission = Submission.from_database(db, website.website_id, submission_id)
     if not submission:
-        return {
-            "error": {
-                "code": 404,
-                "message": f"There are no snapshots for a submission with the ID {submission_id} on {website.full_name}"
-            }
-        }, 404
+        return error_resp(
+            404,
+            f"There are no snapshots for a submission with the ID {submission_id} on {website.full_name}"
+        )
     return {
         "data": submission.to_web_snapshots_json()
     }
@@ -81,20 +73,10 @@ def view_submission_snapshots(website_id: str, submission_id: str):
 def view_user(website_id: str, user_id: str):
     website = Website.from_database(db, website_id)
     if not website:
-        return {
-            "error": {
-                "code": 404,
-                "message": f"Website does not exist by ID: {website_id}"
-            }
-        }, 404
+        return error_resp(404, f"Website does not exist by ID: {website_id}")
     user = User.from_database(db, website_id, user_id)
     if not user:
-        return {
-            "error": {
-                "code": 404,
-                "message": f"There is no entry for a user with the ID {user_id} on {website.full_name}"
-            }
-        }, 404
+        return error_resp(404, f"There is no entry for a user with the ID {user_id} on {website.full_name}")
     return {
         "data": user.to_web_json()
     }
@@ -104,20 +86,10 @@ def view_user(website_id: str, user_id: str):
 def view_user(website_id: str, user_id: str):
     website = Website.from_database(db, website_id)
     if not website:
-        return {
-            "error": {
-                "code": 404,
-                "message": f"Website does not exist by ID: {website_id}"
-            }
-        }, 404
+        return error_resp(404, f"Website does not exist by ID: {website_id}")
     user = User.from_database(db, website_id, user_id)
     if not user:
-        return {
-            "error": {
-                "code": 404,
-                "message": f"There are no snapshots for a user with the ID {user_id} on {website.full_name}"
-            }
-        }, 404
+        return error_resp(404, f"There are no snapshots for a user with the ID {user_id} on {website.full_name}")
     return {
         "data": user.to_web_snapshots_json()
     }
@@ -127,12 +99,7 @@ def view_user(website_id: str, user_id: str):
 def list_users(website_id: str):
     website = Website.from_database(db, website_id)
     if not website:
-        return {
-            "error": {
-                "code": 404,
-                "message": f"Website does not exist by ID: {website_id}"
-            }
-        }, 404
+        return error_resp(404, f"Website does not exist by ID: {website_id}")
     user_rows = db.select(
         "SELECT DISTINCT site_user_id FROM user_snapshots WHERE website_id = %s",
         (website.website_id,)
@@ -150,12 +117,7 @@ def list_users(website_id: str):
 def ingest_submission_snapshot():
     web_data = request.json
     if not web_data:
-        return {
-            "error": {
-                "code": 400,
-                "message": "Submission snapshot data must be posted as json"
-            }
-        }, 400
+        return error_resp(400, "Submission snapshot data must be posted as json")
     contributor = None  # TODO: Implement some auth
     snapshot = SubmissionSnapshot.from_web_json(web_data, contributor)
     snapshot.save(db)
@@ -165,12 +127,7 @@ def ingest_submission_snapshot():
 def ingest_user_snapshot():
     web_data = request.json
     if not web_data:
-        return {
-            "error": {
-                "code": 400,
-                "message": "User snapshot data must be posted as json"
-            }
-        }, 400
+        return error_resp(400, "User snapshot data must be posted as json")
     contributor = None  # TODO: Implement some auth
     snapshot = UserSnapshot.from_web_json(web_data, contributor)
     snapshot.save(db)
