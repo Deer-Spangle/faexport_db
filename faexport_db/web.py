@@ -92,6 +92,26 @@ def view_submission_snapshots(website_id: str, submission_id: str):
     }
 
 
+@app.route("/api/view/submissions/<website_id>.json")
+def list_submissions(website_id: str):
+    website = Website.from_database(db, website_id)
+    if not website:
+        return error_resp(404, f"Website does not exist by ID: {website_id}")
+    submission_rows = db.select(
+        "SELECT DISTINCT site_submission_id FROM submission_snapshots WHERE website_id = %s",
+        (website.website_id,)
+    )
+    submission_ids = [submission_row[0] for submission_row in submission_rows]
+    # TODO: paginate
+    return {
+        "data": {
+            "submission_count": len(submission_ids),
+            "submission_ids": submission_ids
+        }
+    }
+
+
+
 @app.route("/api/view/users/<website_id>/<user_id>.json")
 def view_user(website_id: str, user_id: str):
     website = Website.from_database(db, website_id)
@@ -130,7 +150,7 @@ def list_users(website_id: str):
     user_ids = [user_row[0] for user_row in user_rows]
     return {
         "data": {
-            "num_users": len(user_ids),
+            "user_count": len(user_ids),
             "user_ids": user_ids
         }
     }
