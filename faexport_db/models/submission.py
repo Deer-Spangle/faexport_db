@@ -108,11 +108,11 @@ class Submission:
             "site_submission_id": self.site_submission_id,
             "cache_info": {
                 "snapshot_count": len(self.snapshots),
-                "is_deleted": self.is_deleted,
                 "first_scanned": self.first_scanned,
                 "latest_update": self.latest_update,
             },
             "submission_info": {
+                "is_deleted": self.is_deleted,
                 "uploader_site_user_id": self.uploader_site_user_id,
                 "title": self.title,
                 "description": self.description,

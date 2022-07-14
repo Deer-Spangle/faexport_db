@@ -53,11 +53,11 @@ class User:
             "site_user_id": self.site_user_id,
             "cache_info": {
                 "snapshot_count": len(self.snapshots),
-                "is_deleted": self.is_deleted,
                 "first_scanned": self.first_scanned,
                 "latest_update": self.latest_update,
             },
             "user_info": {
+                "is_deleted": self.is_deleted,
                 "display_name": self.display_name,
                 "extra_data": self.extra_data,
             }
