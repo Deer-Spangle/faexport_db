@@ -246,7 +246,7 @@ class SubmissionSnapshot:
             "submission_snapshot_id": self.submission_snapshot_id,
             "website_id": self.website_id,
             "site_submission_id": self.site_submission_id,
-            "cache_data":{
+            "cache_data": {
                 "scan_datetime": self.scan_datetime,
                 "archive_contributor": self.contributor.to_web_json(),
                 "ingest_datetime": self.ingest_datetime,
@@ -274,7 +274,7 @@ class SubmissionSnapshot:
             keywords = SubmissionKeyword.list_from_unordered_keywords(web_data["unordered_keywords"])
         files = None
         if "files" in web_data:
-            files = [File.from_web_json(file_data) for file in web_data["files"]]
+            files = [File.from_web_json(file_data) for file_data in web_data["files"]]
         return SubmissionSnapshot(
             web_data["website_id"],
             web_data["site_submission_id"],

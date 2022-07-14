@@ -83,7 +83,7 @@ def view_user(website_id: str, user_id: str):
 
 
 @app.route("/api/view/users/<website_id>/<user_id>/snapshots.json")
-def view_user(website_id: str, user_id: str):
+def view_user_snapshots(website_id: str, user_id: str):
     website = Website.from_database(db, website_id)
     if not website:
         return error_resp(404, f"Website does not exist by ID: {website_id}")
