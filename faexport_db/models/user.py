@@ -51,12 +51,12 @@ class User:
         return {
             "website_id": self.website_id,
             "site_user_id": self.site_user_id,
-            "cache_info": {
+            "cache_data": {
                 "snapshot_count": len(self.snapshots),
                 "first_scanned": self.first_scanned,
                 "latest_update": self.latest_update,
             },
-            "user_info": {
+            "user_data": {
                 "is_deleted": self.is_deleted,
                 "display_name": self.display_name,
                 "extra_data": self.extra_data,

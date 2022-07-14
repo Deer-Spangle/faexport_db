@@ -106,20 +106,20 @@ class Submission:
         return {
             "website_id": self.website_id,
             "site_submission_id": self.site_submission_id,
-            "cache_info": {
+            "cache_data": {
                 "snapshot_count": len(self.snapshots),
                 "first_scanned": self.first_scanned,
                 "latest_update": self.latest_update,
             },
-            "submission_info": {
+            "submission_data": {
                 "is_deleted": self.is_deleted,
                 "uploader_site_user_id": self.uploader_site_user_id,
                 "title": self.title,
                 "description": self.description,
                 "datetime_posted": self.datetime_posted.isoformat() if self.datetime_posted is not None else None,
-                "extra_data": self.extra_data,
                 "keywords": [keyword.to_web_json() for keyword in self.keywords],
                 "files": [file.to_web_json() for file in self.files.values()],
+                "extra_data": self.extra_data,
             }
         }
 
