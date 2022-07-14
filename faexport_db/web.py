@@ -161,6 +161,21 @@ def ingest_submission_snapshot():
     snapshot.save(db)
 
 
+@app.route("/api/ingest/user", methods=["POST"])
+def ingest_user_snapshot():
+    web_data = request.json
+    if not web_data:
+        return {
+            "error": {
+                "code": 400,
+                "message": "User snapshot data must be posted as json"
+            }
+        }, 400
+    contributor = None  # TODO: Implement some auth
+    snapshot = UserSnapshot.from_web_json(web_data, contributor)
+    snapshot.save(db)
+
+
 @app.route("/api/websites.json")
 def list_websites() -> Dict:
     websites = Website.list_all(db)

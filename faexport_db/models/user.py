@@ -1,7 +1,7 @@
 import datetime
 from typing import Optional, Dict, Any, List
 
-from faexport_db.db import merge_dicts, Database, json_to_db
+from faexport_db.db import merge_dicts, Database, json_to_db, parse_datetime
 from faexport_db.models.archive_contributor import ArchiveContributor
 
 
@@ -157,6 +157,18 @@ class UserSnapshot:
                 "extra_data": self.extra_data,
             },
         }
+    
+    @classmethod
+    def from_web_json(cls, web_data: Dict, contributor: ArchiveContributor) -> "UserSnapshot":
+        return cls(
+            web_data["website_id"],
+            web_data["site_user_id"],
+            contributor,
+            parse_datetime(web_data.get("scan_datetime")),
+            is_deleted=web_data.get("is_deleted", False),
+            display_name=web_data.get("display_name"),
+            extra_data=web_data.get("extra_data"),
+        )
 
     def create_snapshot(self, db: "Database") -> None:
         user_rows = db.insert(
