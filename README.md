@@ -49,10 +49,14 @@ I'm writing out this Readme because I got a bit lost on what this project is mea
   - View that submission
 - GET /api/view/submissions/fa/3748252/snapshots [TODO]
   - View the snapshots that make up that submission
-- POST /api/ingest/faexport/submission [TODO]
-  - Post a submission to ingest it into the database
-- POST /api/ingest/faexport/user [TODO]
-  - Post a user to ingest it into the database
+- POST /api/ingest/submission [TODO]
+  - Post a submission snapshot to ingest it into the database
+- POST /api/ingest/submission?format=faexport [TODO]
+  - Post submission data in a predefined format, to ingest it as a submission snapshot
+- POST /api/ingest/user [TODO]
+  - Post a user snapshot to ingest it into the database
+- POST /api/ingest/user?format=faexport [TODO]
+  - Post user data in a predefined format, to ingest it as a user snapshot
 - GET /api/view/users/fa/dr-spangle.json
   - View a user data
 - GET /api/view/users/fa/dr-spangle/snapshots.json [TODO]
