@@ -15,6 +15,16 @@ def remove_file_hash(db: Database, hash_id: int) -> None:
     db.update("DELETE FROM submission_snapshot_file_hashes WHERE hash_id = %s", (hash_id,))
 
 
+def remove_file_hashes_by_file(db: Database, file_ids: List[int]) -> None:
+    if DRY_RUN:
+        return
+    chunk_size = 1000
+    chunk_count = (len(file_ids) // chunk_size) + 1
+    for file_ids_chunk in tqdm.tqdm(chunks(file_ids, chunk_size), "Removing hashes", total=chunk_count):
+        print(f"Removing {len(file_ids_chunk)} hashes")
+        db.update("DELETE FROM submission_snapshot_file_hashes WHERE file_id IN %s", (tuple(file_ids_chunk),))
+
+
 def scan_file_hashes(db: Database) -> int:
     print("Scanning file hashes")
     valid_file_ids = {
@@ -86,6 +96,19 @@ def remove_keyword(db: Database, keyword_id: int) -> None:
     db.update("DELETE FROM submission_snapshot_keywords WHERE keyword_id = %s", (keyword_id,))
 
 
+def remove_keywords(db: Database, keyword_ids: List[int]) -> None:
+    if DRY_RUN:
+        return
+    chunk_size = 1000
+    chunk_count = (len(keyword_ids) // chunk_size) + 1
+    for keyword_ids_chunk in tqdm.tqdm(chunks(keyword_ids, chunk_size), "Removing keywords", total=chunk_count):
+        print(f"Removing {len(keyword_ids_chunk)} keywords")
+        db.update(
+            "DELETE FROM submission_snapshot_keywords WHERE keyword_id IN %s",
+            (tuple(keyword_ids_chunk),)
+        )
+
+
 def scan_keywords(db: Database) -> int:
     print("Scanning keywords")
     valid_sub_ids = {
@@ -103,8 +126,7 @@ def scan_keywords(db: Database) -> int:
         if sub_id not in valid_sub_ids:
             print(f"Removing orphaned keyword, ID: {keyword_id}")
             remove_ids.append(keyword_id)
-    for keyword_id in tqdm.tqdm(remove_ids, "Removing keywords"):
-        remove_keyword(db, keyword_id)
+    remove_keywords(db, remove_ids)
     return len(remove_ids)
 
 
@@ -122,6 +144,38 @@ def remove_submission(db: Database, sub_id: int) -> None:
     db.update("DELETE FROM submission_snapshots WHERE submission_snapshot_id = %s", (sub_id,))
 
 
+def remove_submissions(db: Database, submission_ids: List[int]) -> None:
+    if DRY_RUN:
+        return
+    chunk_size = 1000
+    chunk_count = (len(submission_ids) // chunk_size) + 1
+    for submission_ids_chunk in tqdm.tqdm(
+            chunks(submission_ids, chunk_size),
+            "Removing submissions",
+            total=chunk_count
+    ):
+        print(f"Removing {len(submission_ids_chunk)} keywords")
+
+        file_rows = db.select_iter(
+            "SELECT file_id FROM submission_snapshot_files WHERE submission_snapshot_id IN %s",
+            (tuple(submission_ids_chunk),)
+        )
+        file_ids = [file_row[0] for file_row in file_rows]
+        remove_file_hashes_by_file(db, file_ids)
+        db.update(
+            "DELETE FROM submission_snapshot_files WHERE submission_snapshot_id IN %s",
+            (tuple(submission_ids_chunk),)
+        )
+        db.update(
+            "DELETE FROM submission_snapshot_keywords WHERE submission_snapshot_id IN %s",
+            (tuple(submission_ids_chunk),)
+        )
+        db.update(
+            "DELETE FROM submission_snapshots WHERE submission_snapshot_id IN %s",
+            (tuple(submission_ids_chunk),)
+        )
+
+
 def scan_submissions(db: Database) -> int:
     print("Scanning submissions")
     sub_rows = db.select_iter(
@@ -129,16 +183,16 @@ def scan_submissions(db: Database) -> int:
         "FROM submission_snapshots", tuple()
     )
     index = set()
-    removed = 0
+    remove_ids = []
     for sub_row in tqdm.tqdm(sub_rows, "Scanning submissions"):
         index_entry = tuple(sub_row[1:])
         if index_entry in index:
             print(f"Removing duplicate submission, ID: {sub_row[0]}")
-            remove_submission(db, sub_row[0])
-            removed += 1
+            remove_ids.append(sub_row[0])
         else:
             index.add(index_entry)
-    return removed
+    remove_submissions(db, remove_ids)
+    return len(remove_ids)
 
 
 def remove_user(db: Database, user_id: int) -> None:
@@ -186,10 +240,10 @@ if __name__ == "__main__":
     db_dsn = config["db_conn"]
     db_conn = psycopg2.connect(db_dsn)
     db_obj = Database(db_conn)
-    removed_users = scan_users(db_obj)
-    removed_hashes = scan_file_hashes(db_obj)
-    removed_files = scan_files(db_obj)
-    removed_keywords = scan_keywords(db_obj)
+    removed_users = 0# scan_users(db_obj)
+    removed_hashes = 0#scan_file_hashes(db_obj)
+    removed_files = 0#can_files(db_obj)
+    removed_keywords = 0#scan_keywords(db_obj)
     removed_submissions = scan_submissions(db_obj)
     print(f"Removed users: {removed_users}")
     print(f"Removed hashes: {removed_hashes}")
