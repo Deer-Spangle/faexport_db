@@ -1,6 +1,7 @@
 import datetime
 import json
-from typing import Tuple, List, Any, Optional, Dict, TypeVar
+from json import JSONEncoder
+from typing import Tuple, List, Any, Optional, Dict, TypeVar, Iterable
 
 import dateutil.parser
 import psycopg2
@@ -34,6 +35,19 @@ def parse_datetime(datetime_str: Optional[str]) -> Optional[datetime.datetime]:
     if not datetime_str:
         return None
     return dateutil.parser.parse(datetime_str)
+
+
+class CustomJSONEncoder(JSONEncoder):
+    def default(self, obj):
+        try:
+            if isinstance(obj, datetime.datetime):
+                return obj.isoformat()
+            iterable = iter(obj)
+        except TypeError:
+            pass
+        else:
+            return list(iterable)
+        return JSONEncoder.default(self, obj)
 
 
 class Database:

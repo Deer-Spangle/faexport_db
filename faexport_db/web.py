@@ -5,7 +5,7 @@ from typing import Dict, Tuple, Type
 import psycopg2
 from werkzeug.routing import BaseConverter, ValidationError
 
-from faexport_db.db import Database
+from faexport_db.db import Database, CustomJSONEncoder
 from faexport_db.ingest_formats.base import SimpleUserSnapshot, SimpleSubmissionSnapshot, BaseFormat
 from faexport_db.ingest_formats.faexport import FAExportUser, FAExportSubmission
 from faexport_db.models.archive_contributor import ArchiveContributor
@@ -36,6 +36,7 @@ class IngestionFormatConverter(BaseConverter):
 
 app = Flask(__name__)
 app.url_map.converters["ingest_format"] = IngestionFormatConverter
+app.json_encoder = CustomJSONEncoder
 
 dsn = os.getenv("DSN")
 if dsn is None:
