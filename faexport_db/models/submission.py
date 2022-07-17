@@ -324,3 +324,35 @@ class SubmissionSnapshot:
     def save(self, db: "Database") -> None:
         if self.submission_snapshot_id is None:
             self.create_snapshot(db)
+
+    @classmethod
+    def list_all(cls, db: Database, website_id: str) -> Iterable["SubmissionSnapshot"]:
+        contributors = {contributor.contributor_id: contributor for contributor in ArchiveContributor.list_all(db)}
+        snapshot_rows = db.select_iter(
+            "SELECT submission_snapshot_id, website_id, site_submission_id, scan_datetime, archive_contributor_id, "
+            "ingest_datetime, uploader_site_user_id, is_deleted, title, description, datetime_posted, "
+            "keywords_recorded, extra_data "
+            "FROM submission_snapshots WHERE website_id = %s",
+            (website_id,)
+        )
+        for snapshot_row in snapshot_rows:
+            snapshot_id, website_id, site_submission_id, scan_datetime, archive_contributor_id, ingest_datetime, uploader_site_user_id, is_deleted, title, description, datetime_posted, keywords_recorded, extra_data = snapshot_row
+            contributor = contributors[archive_contributor_id]
+            keywords = SubmissionKeyword.list_for_submission_snapshot(db, snapshot_id)
+            files = File.list_for_submission_snapshot(db, snapshot_id)
+            yield cls(
+                website_id,
+                site_submission_id,
+                contributor,
+                scan_datetime,
+                submission_snapshot_id=site_submission_id,
+                ingest_datetime=ingest_datetime,
+                uploader_site_user_id=uploader_site_user_id,
+                is_deleted=is_deleted,
+                title=title,
+                description=description,
+                datetime_posted=datetime_posted,
+                extra_data=extra_data,
+                keywords=keywords,
+                files=files,
+            )
