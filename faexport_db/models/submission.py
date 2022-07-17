@@ -1,6 +1,6 @@
 from __future__ import annotations
 import datetime
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Iterable
 
 from faexport_db.db import (
     merge_dicts,
@@ -183,6 +183,15 @@ class Submission:
             site_submission_id,
             snapshots
         )
+
+    @classmethod
+    def list_unique_site_ids(cls, db: Database, website_id: str) -> Iterable[str]:
+        submission_rows = db.select_iter(
+            "SELECT DISTINCT site_submission_id FROM submission_snapshots WHERE website_id = %s",
+            (website_id,)
+        )
+        for submission_row in submission_rows:
+            yield submission_row[0]
 
 
 class SubmissionSnapshot:

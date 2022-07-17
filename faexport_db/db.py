@@ -60,6 +60,16 @@ class Database:
             result = cur.fetchall()
         return result
 
+    def select_iter(self, query: str, args: Tuple) -> Iterable[Any]:
+        with self.conn.cursor() as cur:
+            cur.execute(query, args)
+            while True:
+                rows = cur.fetchmany(5000)
+                if not rows:
+                    break
+                for row in rows:
+                    yield row
+
     def insert(self, query: str, args: Tuple) -> List[Any]:
         with self.conn.cursor() as cur:
             try:

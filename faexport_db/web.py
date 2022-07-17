@@ -98,11 +98,7 @@ def list_submissions(website_id: str):
     website = Website.from_database(db, website_id)
     if not website:
         return error_resp(404, f"Website does not exist by ID: {website_id}")
-    submission_rows = db.select(
-        "SELECT DISTINCT site_submission_id FROM submission_snapshots WHERE website_id = %s",
-        (website.website_id,)
-    )
-    submission_ids = [submission_row[0] for submission_row in submission_rows]
+    submission_ids = list(Submission.list_unique_site_ids(db, website))
     # TODO: paginate
     return {
         "data": {
