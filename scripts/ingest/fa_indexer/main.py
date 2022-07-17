@@ -70,7 +70,13 @@ class Processor:
             submission_data: Dict,
     ) -> SubmissionSnapshot:
         if submission_data["id"] == 641877:
+            # This submission has null characters, due to a mis-formatted date
             submission_data["description"] = submission_data["description"].replace("\0", "/0")
+        if "\0" in submission_data["description"]:
+            # 18570215 has nul characters due to utf-16 encoding issues
+            # 24491325, and 24661614 have nul characters for no clear reason
+            # Given they seem to just be a mistake, lets just clean them out from any submission
+            submission_data["description"] = submission_data["description"].replace("\0", "")
         uploader_username = submission_data["username"]
         if uploader_username not in self.seen_usernames:
             self.seen_usernames.add(uploader_username)
