@@ -17,13 +17,18 @@ def remove_file_hash(db: Database, hash_id: int) -> None:
 
 def scan_file_hashes(db: Database) -> int:
     print("Scanning file hashes")
-    valid_file_ids = {row[0] for row in db.select("SELECT file_id FROM submission_snapshot_files", tuple())}
-    hash_rows = db.select(
+    valid_file_ids = {
+        row[0] for row in tqdm.tqdm(
+            db.select_iter("SELECT file_id FROM submission_snapshot_files", tuple()),
+            "Listing file IDs"
+        )
+    }
+    hash_rows = db.select_iter(
         "SELECT hash_id, file_id, algo_id FROM submission_snapshot_file_hashes", tuple()
     )
     index = set()
     remove_ids = []
-    for hash_row in tqdm.tqdm(hash_rows):
+    for hash_row in tqdm.tqdm(hash_rows, "Scanning file hashes"):
         hash_id, file_id, algo_id = hash_row
         index_entry = (file_id, algo_id)
         if file_id not in valid_file_ids:
@@ -34,7 +39,7 @@ def scan_file_hashes(db: Database) -> int:
             remove_ids.append(hash_id)
         else:
             index.add(index_entry)
-    for remove_id in remove_ids:
+    for remove_id in tqdm.tqdm(remove_ids, "Removing file hashes"):
         remove_file_hash(db, remove_id)
     return len(remove_ids)
 
@@ -48,13 +53,18 @@ def remove_file(db: Database, file_id: int) -> None:
 
 def scan_files(db: Database) -> int:
     print("Scanning files")
-    valid_sub_ids = {row[0] for row in db.select("SELECT submission_snapshot_id FROM submission_snapshots", tuple())}
-    file_rows = db.select(
+    valid_sub_ids = {
+        row[0] for row in tqdm.tqdm(
+            db.select_iter("SELECT submission_snapshot_id FROM submission_snapshots", tuple()),
+            "Listing submission IDs"
+        )
+    }
+    file_rows = db.select_iter(
         "SELECT file_id, submission_snapshot_id, site_file_id FROM submission_snapshot_files", tuple()
     )
     index = set()
     remove_ids = []
-    for file_row in tqdm.tqdm(file_rows):
+    for file_row in tqdm.tqdm(file_rows, "Scanning files"):
         file_id, sub_id, site_file_id = file_row
         index_entry = (sub_id, site_file_id)
         if sub_id not in valid_sub_ids:
@@ -65,7 +75,7 @@ def scan_files(db: Database) -> int:
             remove_ids.append(file_id)
         else:
             index.add(index_entry)
-    for file_id in remove_ids:
+    for file_id in tqdm.tqdm(remove_ids, "Removing files"):
         remove_file(db, file_id)
     return len(remove_ids)
 
@@ -78,17 +88,22 @@ def remove_keyword(db: Database, keyword_id: int) -> None:
 
 def scan_keywords(db: Database) -> int:
     print("Scanning keywords")
-    valid_sub_ids = {row[0] for row in db.select("SELECT submission_snapshot_id FROM submission_snapshots", tuple())}
-    keyword_rows = db.select(
+    valid_sub_ids = {
+        row[0] for row in tqdm.tqdm(
+            db.select_iter("SELECT submission_snapshot_id FROM submission_snapshots", tuple()),
+            "Listing submission IDs"
+        )
+    }
+    keyword_rows = db.select_iter(
         "SELECT keyword_id, submission_snapshot_id FROM submission_snapshot_keywords", tuple()
     )
     remove_ids = []
-    for keyword_row in tqdm.tqdm(keyword_rows):
+    for keyword_row in tqdm.tqdm(keyword_rows, "Scanning keywords"):
         keyword_id, sub_id = keyword_row
         if sub_id not in valid_sub_ids:
             print(f"Removing orphaned keyword, ID: {keyword_id}")
             remove_ids.append(keyword_id)
-    for keyword_id in remove_ids:
+    for keyword_id in tqdm.tqdm(remove_ids, "Removing keywords"):
         remove_keyword(db, keyword_id)
     return len(remove_ids)
 
@@ -96,7 +111,7 @@ def scan_keywords(db: Database) -> int:
 def remove_submission(db: Database, sub_id: int) -> None:
     if DRY_RUN:
         return
-    file_rows = db.select(
+    file_rows = db.select_iter(
         "SELECT file_id FROM submission_snapshot_files WHERE submission_snapshot_id = %s",
         (sub_id,)
     )
@@ -109,13 +124,13 @@ def remove_submission(db: Database, sub_id: int) -> None:
 
 def scan_submissions(db: Database) -> int:
     print("Scanning submissions")
-    sub_rows = db.select(
+    sub_rows = db.select_iter(
         "SELECT submission_snapshot_id, website_id, site_submission_id, scan_datetime, archive_contributor_id "
         "FROM submission_snapshots", tuple()
     )
     index = set()
     removed = 0
-    for sub_row in tqdm.tqdm(sub_rows):
+    for sub_row in tqdm.tqdm(sub_rows, "Scanning submissions"):
         index_entry = tuple(sub_row[1:])
         if index_entry in index:
             print(f"Removing duplicate submission, ID: {sub_row[0]}")
@@ -137,7 +152,7 @@ def remove_users(db: Database, user_ids: List[int]) -> None:
         return
     chunk_size = 1000
     chunk_count = (len(user_ids) // chunk_size) + 1
-    for user_ids_chunk in tqdm.tqdm(chunks(user_ids, chunk_size), total=chunk_count):
+    for user_ids_chunk in tqdm.tqdm(chunks(user_ids, chunk_size), "Removing users", total=chunk_count):
         print(f"Removing {len(user_ids_chunk)} users")
         db.update(
             "DELETE FROM user_snapshots WHERE user_snapshot_id IN %s",
@@ -147,13 +162,13 @@ def remove_users(db: Database, user_ids: List[int]) -> None:
 
 def scan_users(db: Database) -> int:
     print("Scanning users")
-    user_rows = db.select(
+    user_rows = db.select_iter(
         "SELECT user_snapshot_id, website_id, site_user_id, scan_datetime, archive_contributor_id FROM user_snapshots",
         tuple()
     )
     index = set()
     remove_ids = []
-    for user_row in tqdm.tqdm(user_rows):
+    for user_row in tqdm.tqdm(user_rows, "Scanning users"):
         index_entry = tuple(user_row[1:])
         if index_entry in index:
             print(f"Found duplicate user, ID: {user_row[0]}")
