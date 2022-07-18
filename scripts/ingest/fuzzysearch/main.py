@@ -182,7 +182,7 @@ def import_row(row: Dict[str, str], db: Database) -> SubmissionSnapshot:
         website_id,
         submission_id,
         CONTRIBUTOR,
-        ingest_date,
+        scan_date,
 
         uploader_site_user_id=uploader_username,
         is_deleted=(deleted == "true"),
