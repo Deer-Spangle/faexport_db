@@ -206,7 +206,7 @@ def csv_row_count() -> int:
         return sum(1 for _ in tqdm.tqdm(reader))
 
 
-def csv_earliest_date() -> datetime.dateime:
+def csv_earliest_date() -> datetime.datetime:
     return datetime.datetime(2021, 4, 25, 18, 57, 56, 966994, datetime.timezone.utc)
     earliest = "zzz"
     with open(FUZZYSEARCH_FILE, "r", encoding="utf-8") as file:
