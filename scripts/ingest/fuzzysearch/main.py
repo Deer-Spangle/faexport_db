@@ -91,20 +91,21 @@ class WeasylLookup:
                         extra_data={
                             "catchphrase": resp["cachephrase"],
                             "profile_text": resp["profile_text"],
-                            "stream_text": resp["stream_text"],  # TODO: really?
-                            "show_favorites_bar": resp["show_favorites_bar"],  # TODO: really?
-                            "show_favorites_tab": resp["show_favorites_tab"],  # TODO: really?
+                            "stream_text": resp["stream_text"],
+                            "show_favorites_bar": resp["show_favorites_bar"],
+                            "show_favorites_tab": resp["show_favorites_tab"],
                             "banned": resp["banned"],
                             "suspended": resp["suspended"],
-                            "streaming_status": resp["streaming_status"],  # TODO: really?
+                            "streaming_status": resp["streaming_status"],
                             "created_at": dateutil.parser.parse(resp["created_at"]),
-                            "media": resp["media"],  # TODO: Pull apart structure?
+                            "media": resp["media"],
+                            "avatar_url": resp["media"]["avatar"][0]["url"],
                             "full_name": resp["full_name"],
                             "folders": resp["folders"],
                             "commission_info": resp["commission_info"],
-                            "recent_type": resp["recent_type"],  # TODO: what?
-                            "featured_submission": resp["featured_submission"],  # TODO: what structure? site ID?
-                            "statistics": resp["statistics"],  # TODO: pull apart?
+                            "recent_type": resp["recent_type"],
+                            "featured_submission": resp["featured_submission"],
+                            "statistics": resp["statistics"],
                         }
                     )
                 ]
@@ -130,7 +131,8 @@ class WeasylLookup:
                 datetime.datetime.now(datetime.timezone.utc),
                 display_name=site_display_name,
                 extra_data={
-                    "media": resp["owner_media"]  # TODO: Pull apart structure?
+                    "media": resp["owner_media"],
+                    "avatar_url": resp["owner_media"]["avatar"][0]["url"],
                 }
             )
         ]
