@@ -44,11 +44,46 @@ WEASYL_ID = "weasyl"
 
 class WeasylLookup:
     username_chars = string.ascii_letters + string.digits
+    FILENAME = "./cache_weasyl_lookup.json"
 
     def __init__(self):
-        self.cache: Dict[str, List[UserSnapshot]] = {}  # TODO: load cache from file?
+        self.cache: Dict[str, List[UserSnapshot]] = self.load_cache()
         self.last_request = datetime.datetime.now()
         self._lock = Lock()
+
+    def save_cache(self) -> None:
+        data = {
+            key: [snapshot.to_web_json() for snapshot in snapshots]
+            for key, snapshots in self.cache.items()
+        }
+        with open(self.FILENAME, "w") as f:
+            json.dump(data, f)
+
+    @classmethod
+    def load_cache(cls) -> Dict:
+        with open(cls.FILENAME, "r") as f:
+            data = json.load(f)
+        cache = {
+            key: [
+                UserSnapshot(
+                    snapshot["website_id"],
+                    snapshot["site_user_id"],
+                    ArchiveContributor(
+                        snapshot["cache_data"]["archive_contributor"]["name"],
+                        contributor_id=snapshot["cache_data"]["archive_contributor"]["contributor_id"],
+                    ),
+                    dateutil.parser.parse(snapshot["cache_data"]["scan_datetime"]),
+                    user_snapshot_id=snapshot["user_snapshot_id"],
+                    ingest_datetime=snapshot["cache_data"]["ingest_datetime"],
+                    is_deleted=snapshot["user_data"]["is_deleted"],
+                    display_name=snapshot["user_data"]["display_name"],
+                    extra_data=snapshot["user_data"]["extra_data"]
+                )
+                for snapshot in snapshots
+            ]
+            for key, snapshots in data.items()
+        }
+        return cache
 
     def fetch_api(self, path: str) -> Dict:
         with self._lock:
@@ -110,6 +145,7 @@ class WeasylLookup:
                     )
                 ]
                 self.cache[display_name] = snapshots
+                self.save_cache()
                 return snapshots
         except Exception:
             pass
@@ -138,6 +174,7 @@ class WeasylLookup:
         ]
         self.cache[display_name] = snapshots
         self.cache[site_display_name] = snapshots
+        self.save_cache()
         return snapshots
 
 
