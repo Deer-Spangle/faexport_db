@@ -61,8 +61,11 @@ class WeasylLookup:
 
     @classmethod
     def load_cache(cls) -> Dict:
-        with open(cls.FILENAME, "r") as f:
-            data = json.load(f)
+        try:
+            with open(cls.FILENAME, "r") as f:
+                data = json.load(f)
+        except FileNotFoundError:
+            return {}
         cache = {
             key: [
                 UserSnapshot(
