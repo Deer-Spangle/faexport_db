@@ -210,8 +210,10 @@ SITE_CONFIG = {
 }
 
 
-def import_row(row: Dict[str, str], db: Database) -> SubmissionSnapshot:
+def import_row(row: Dict[str, str], db: Database) -> Optional[SubmissionSnapshot]:
     site, submission_id, artists, hash_value, posted_at, updated_at, sha256, deleted, content_url = row.values()
+    if hash_value:
+        return None
     site_config = SITE_CONFIG[site]
     website_id = site_config.website.website_id
     scan_date = csv_earliest_date()
@@ -272,9 +274,40 @@ def csv_earliest_date() -> datetime.datetime:
     return dateutil.parser.parse(earliest)
 
 
+fa_allowed_chars = set(string.ascii_letters + string.digits + "-_.~[]^`")
+weasyl_allowed_chars = set(string.ascii_letters + string.digits + " -_.'@&!~|`")
+
+
+def validate_row(row: Dict) -> None:
+    site, submission_id, artists, hash_value, posted_at, updated_at, sha256, deleted, content_url = row.values()
+    if hash_value == "":
+        return
+    assert site in SITE_CONFIG
+    assert submission_id
+    if site == "e621":
+        pass
+    elif site == "weasyl":
+        assert set(artists).issubset(weasyl_allowed_chars)
+    elif site == "furaffinity":
+        assert set(artists).issubset(fa_allowed_chars)
+    assert struct.pack(">q", int(hash_value))
+    assert dateutil.parser.parse(posted_at)
+    if updated_at:
+        assert dateutil.parser.parse(updated_at)
+    assert base64.b64decode(sha256.encode('ascii'))
+    assert deleted in ["true", "false"]
+    assert content_url
+
+
+def validate_csv() -> None:
+    row_count = csv_row_count()
+    with open(FUZZYSEARCH_FILE, "r", encoding="utf-8") as file:
+        reader = csv.DictReader(file)
+        for row in tqdm.tqdm(reader, total=row_count):
+            validate_row(row)
+
+
 def check_csv() -> None:
-    fa_allowed_chars = set(string.ascii_lowercase + string.digits + "-_.~[]^`")
-    weasyl_allowed_chars = set(string.ascii_letters + string.digits + " -_.'@&!~|`")
     sites = set()
     weasyl_usernames = set()
     row_count = csv_row_count()
@@ -329,5 +362,6 @@ if __name__ == "__main__":
     SHA_HASH.save(db_obj)
     DHASH.save(db_obj)
     # Import data
-    check_csv()
+    # check_csv()
+    validate_csv()
     # ingest_csv(db_obj)
