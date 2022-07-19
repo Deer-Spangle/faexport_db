@@ -5,6 +5,8 @@ import datetime
 import json
 import string
 import struct
+import time
+from threading import Lock
 from typing import Dict, Callable, Optional, List
 
 import dateutil.parser
@@ -44,7 +46,17 @@ class WeasylLookup:
     username_chars = string.ascii_letters + string.digits
 
     def __init__(self):
-        self.cache: Dict[str, List[UserSnapshot]] = {}
+        self.cache: Dict[str, List[UserSnapshot]] = {}  # TODO: load cache from file?
+        self.last_request = datetime.datetime.now()
+        self._lock = Lock()
+
+    def fetch_api(self, path: str) -> Dict:
+        with self._lock:
+            while self.last_request + datetime.timedelta(seconds=1) > datetime.datetime.now():
+                time.sleep(0.1)
+            resp = requests.get(f"https://weasyl.com/api/{path}").json()
+            self.last_request = datetime.datetime.now()
+            return resp
 
     def get_user_snapshots(
             self,
@@ -58,7 +70,7 @@ class WeasylLookup:
         username_guess = "".join([char for char in display_name.lower() if char in self.username_chars])
         # Fetch weasyl user response
         try:
-            resp = requests.get(f"https://weasyl.com/api/users/{username_guess}/view").json()
+            resp = self.fetch_api(f"/users/{username_guess}/view")
             site_username = resp["login_name"]
             site_display_name = resp["username"]
             if display_name == site_display_name:
@@ -100,7 +112,7 @@ class WeasylLookup:
                 return snapshots
         except Exception:
             pass
-        resp = requests.get(f"https://weasyl.com/api/submission/{submission_id}/view").json()
+        resp = self.fetch_api(f"/submission/{submission_id}/view")
         site_username = resp["owner_login"]
         site_display_name = resp["owner"]
         snapshots = [
