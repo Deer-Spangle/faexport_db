@@ -4,6 +4,7 @@ import dataclasses
 import datetime
 import json
 import string
+import struct
 from typing import Dict, Callable, Optional, List
 
 import dateutil.parser
@@ -170,7 +171,7 @@ def import_row(row: Dict[str, str], db: Database) -> SubmissionSnapshot:
             user_snapshot.save(db)
             uploader_username = user_snapshot.site_user_id
 
-    dhash_bytes = int(hash_value).to_bytes(8, byteorder='big')
+    dhash_bytes = struct.pack(">q")
     hashes = [
         FileHash(DHASH.algo_id, dhash_bytes)
     ]
