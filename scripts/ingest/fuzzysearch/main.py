@@ -22,7 +22,7 @@ from faexport_db.models.submission import SubmissionSnapshot
 from faexport_db.models.user import UserSnapshot
 from faexport_db.models.website import Website
 
-FUZZYSEARCH_FILE = "./dump/fuzzysearch/fuzzysearch-dumps.csv"
+FUZZYSEARCH_FILE = "./dump/fuzzysearch/fuzzysearch-dump-20220620.csv"
 DATA_DATE = datetime.datetime(2022, 6, 22, 0, 0, 0, 0, datetime.timezone.utc)
 CONTRIBUTOR = ArchiveContributor("FuzzySearch data ingest")
 SHA_HASH = HashAlgo("any", "sha256")
