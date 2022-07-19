@@ -294,7 +294,8 @@ def validate_row(row: Dict) -> None:
     assert dateutil.parser.parse(posted_at)
     if updated_at:
         assert dateutil.parser.parse(updated_at)
-    assert base64.b64decode(sha256.encode('ascii'))
+    if sha256:
+        assert base64.b64decode(sha256.encode('ascii'))
     assert deleted in ["true", "false"]
     assert content_url
 
