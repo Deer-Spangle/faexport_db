@@ -131,7 +131,7 @@ class WeasylLookup:
                 return snapshots
         except Exception:
             pass
-        resp = self.fetch_api(f"/submission/{submission_id}/view")
+        resp = self.fetch_api(f"/submissions/{submission_id}/view")
         site_username = resp["owner_login"]
         site_display_name = resp["owner"]
         snapshots = [
