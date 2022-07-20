@@ -26,7 +26,7 @@ def json_to_db(data: Optional[Dict[str, Any]]) -> Optional[str]:
 N = TypeVar("N")
 
 
-def chunks(lst: List[N], n: int) -> List[List[N]]:
+def chunks(lst: List[N], n: int) -> Iterable[List[N]]:
     for i in range(0, len(lst), n):
         yield lst[i:i + n]
 
