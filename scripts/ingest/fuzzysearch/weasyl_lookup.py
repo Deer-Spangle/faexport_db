@@ -10,7 +10,8 @@ import requests
 
 from faexport_db.models.archive_contributor import ArchiveContributor
 from faexport_db.models.user import UserSnapshot
-from scripts.ingest.fuzzysearch.main import WEASYL_ID
+
+WEASYL_ID = "weasyl"
 
 
 class WeasylLookup:
