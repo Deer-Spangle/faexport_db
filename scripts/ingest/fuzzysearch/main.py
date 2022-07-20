@@ -140,7 +140,7 @@ def csv_earliest_date() -> datetime.datetime:
 
 
 fa_allowed_chars = set(string.ascii_letters + string.digits + "-_.~[]^`")
-weasyl_allowed_chars = set(string.ascii_letters + string.digits + " -_.'@&!~|`")
+weasyl_allowed_chars = set(string.printable)
 
 
 def validate_row(row: Dict) -> None:
