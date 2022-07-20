@@ -8,6 +8,7 @@ from typing import Dict, List
 import dateutil.parser
 import requests
 
+from faexport_db.db import CustomJSONEncoder
 from faexport_db.models.archive_contributor import ArchiveContributor
 from faexport_db.models.user import UserSnapshot
 
@@ -29,7 +30,7 @@ class WeasylLookup:
             for key, snapshots in self.cache.items()
         }
         with open(self.FILENAME, "w") as f:
-            json.dump(data, f)
+            json.dump(data, f, cls=CustomJSONEncoder)
 
     @classmethod
     def load_cache(cls) -> Dict:
