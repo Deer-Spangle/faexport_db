@@ -64,7 +64,12 @@ class WeasylLookup:
         with self._lock:
             while self.last_request + datetime.timedelta(seconds=1) > datetime.datetime.now():
                 time.sleep(0.1)
-            resp = requests.get(f"https://weasyl.com/api/{path}").json()
+            resp = requests.get(
+                f"https://weasyl.com/api/{path}",
+                headers={
+                    "User-Agent": "Spangle's faexport_db ingest thingy"
+                }
+            ).json()
             self.last_request = datetime.datetime.now()
             return resp
 
