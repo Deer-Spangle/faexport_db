@@ -85,6 +85,10 @@ def import_row(row: Dict[str, str], db: Database) -> Optional[SubmissionSnapshot
             user_snapshot.save(db)
             uploader_username = user_snapshot.site_user_id
 
+    posted_date = None
+    if posted_at:
+        posted_date = dateutil.parser.parse(posted_at)
+
     dhash_bytes = struct.pack(">q", int(hash_value))
     hashes = [
         FileHash(DHASH.algo_id, dhash_bytes)
@@ -92,6 +96,9 @@ def import_row(row: Dict[str, str], db: Database) -> Optional[SubmissionSnapshot
     if sha256:
         sha_bytes = base64.b64decode(sha256.encode('ascii'))
         hashes.append(FileHash(SHA_HASH.algo_id, sha_bytes))
+    file_url = None
+    if content_url:
+        file_url = content_url
 
     update = SubmissionSnapshot(
         website_id,
@@ -101,11 +108,11 @@ def import_row(row: Dict[str, str], db: Database) -> Optional[SubmissionSnapshot
 
         uploader_site_user_id=uploader_username,
         is_deleted=(deleted == "true"),
-        datetime_posted=dateutil.parser.parse(posted_at),
+        datetime_posted=posted_date,
         files=[
             File(
                 None,
-                file_url=content_url,
+                file_url=file_url,
                 hashes=hashes,
             )
         ]
@@ -149,13 +156,14 @@ def validate_row(row: Dict) -> None:
     elif site == "furaffinity":
         assert set(artists).issubset(fa_allowed_chars)
     assert struct.pack(">q", int(hash_value))
-    assert dateutil.parser.parse(posted_at)
+    if posted_at:
+        assert dateutil.parser.parse(posted_at)
     if updated_at:
         assert dateutil.parser.parse(updated_at)
     if sha256:
         assert base64.b64decode(sha256.encode('ascii'))
     assert deleted in ["true", "false"]
-    assert content_url
+    # assert content_url  # Can be empty
 
 
 def validate_csv() -> None:
