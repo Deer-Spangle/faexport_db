@@ -70,7 +70,7 @@ SITE_CONFIG = {
 
 def import_row(row: Dict[str, str], db: Database) -> Optional[SubmissionSnapshot]:
     site, submission_id, artists, hash_value, posted_at, updated_at, sha256, deleted, content_url = row.values()
-    if hash_value:
+    if hash_value == "":
         return None
     site_config = SITE_CONFIG[site]
     website_id = site_config.website.website_id
@@ -138,7 +138,7 @@ weasyl_allowed_chars = set(string.ascii_letters + string.digits + " -_.'@&!~|`")
 
 def validate_row(row: Dict) -> None:
     site, submission_id, artists, hash_value, posted_at, updated_at, sha256, deleted, content_url = row.values()
-    if hash_value == "":
+    if hash_value == "":  # About 5 million rows without any values, skip those
         return
     assert site in SITE_CONFIG
     assert submission_id
