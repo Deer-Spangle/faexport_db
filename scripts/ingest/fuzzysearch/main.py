@@ -17,7 +17,7 @@ import tqdm
 from faexport_db.models.file import FileHash, HashAlgo, File
 from faexport_db.models.submission import SubmissionSnapshot
 from faexport_db.models.website import Website
-from scripts.ingest.fuzzysearch.user_lookup import WeasylLookup, UserLookup, FALookup
+from scripts.ingest.fuzzysearch.user_lookup import WeasylLookup, UserLookup, FALookup, WEASYL_ID, FA_ID
 
 FUZZYSEARCH_FILE = "./dump/fuzzysearch/fuzzysearch-dump-20220620.csv"
 DATA_DATE = datetime.datetime(2022, 6, 22, 0, 0, 0, 0, datetime.timezone.utc)
@@ -33,27 +33,11 @@ class SiteConfig:
     user_lookup: UserLookup = None
 
 
-FA_ID = "fa"
-WEASYL_ID = "weasyl"
-
-SITE_CONFIG = {
-    "furaffinity": SiteConfig(
-        Website(FA_ID, "Fur Affinity", "https://furaffinity.net"),
-        True,
-        FALookup()
-    ),
-    "e621": SiteConfig(
-        Website("e621", "e621", "https://e621.net"),
-        False
-    )
-}
-
-
-def import_row(row: Dict[str, str], db: Database) -> Optional[SubmissionSnapshot]:
+def import_row(row: Dict[str, str], db: Database, site_configs: Dict[str, SiteConfig]) -> Optional[SubmissionSnapshot]:
     site, submission_id, artists, hash_value, posted_at, updated_at, sha256, deleted, content_url = row.values()
     if hash_value == "":
         return None
-    site_config = SITE_CONFIG[site]
+    site_config = site_configs[site]
     website_id = site_config.website.website_id
     scan_date = csv_earliest_date()
     if updated_at:
@@ -124,11 +108,11 @@ fa_allowed_chars = set(string.ascii_letters + string.digits + "-_.~[]^`")
 weasyl_allowed_chars = set(string.printable)
 
 
-def validate_row(row: Dict) -> None:
+def validate_row(row: Dict, site_configs: Dict[str, SiteConfig]) -> None:
     site, submission_id, artists, hash_value, posted_at, updated_at, sha256, deleted, content_url = row.values()
     if hash_value == "":  # About 5 million rows without any values, skip those
         return
-    assert site in SITE_CONFIG
+    assert site in site_configs
     assert submission_id
     if site == "e621":
         pass
@@ -147,12 +131,12 @@ def validate_row(row: Dict) -> None:
     # assert content_url  # Can be empty
 
 
-def validate_csv() -> None:
+def validate_csv(site_configs: Dict[str, SiteConfig]) -> None:
     row_count = csv_row_count()
     with open(FUZZYSEARCH_FILE, "r", encoding="utf-8") as file:
         reader = csv.DictReader(file)
         for row in tqdm.tqdm(reader, total=row_count):
-            validate_row(row)
+            validate_row(row, site_configs)
 
 
 def investigate_csv() -> None:
@@ -185,12 +169,12 @@ def investigate_csv() -> None:
     print(f"Confusing weasyl display names: {weasyl_usernames}")
 
 
-def ingest_csv(db: Database) -> None:
+def ingest_csv(db: Database, sites_config: Dict[str, SiteConfig]) -> None:
     row_count = csv_row_count()
     with open(FUZZYSEARCH_FILE, "r", encoding="utf-8") as file:
         reader = csv.DictReader(file)
         for row in tqdm.tqdm(reader, total=row_count):
-            import_row(dict(row), db)
+            import_row(dict(row), db, sites_config)
 
 
 if __name__ == "__main__":
@@ -201,14 +185,25 @@ if __name__ == "__main__":
     db_dsn = config["db_conn"]
     db_conn = psycopg2.connect(db_dsn)
     db_obj = Database(db_conn)
-    # Add weasyl to site configs
-    SITE_CONFIG[WEASYL_ID] = SiteConfig(
-        Website(WEASYL_ID, "Weasyl", "https://weasyl.com"),
-        True,
-        WeasylLookup(config.get("weasyl_api_key"))
-    )
+    # Set up site configuration
+    site_confs = {
+        "furaffinity": SiteConfig(
+            Website(FA_ID, "Fur Affinity", "https://furaffinity.net"),
+            True,
+            FALookup()
+        ),
+        "e621": SiteConfig(
+            Website("e621", "e621", "https://e621.net"),
+            False
+        ),
+        "weasyl": SiteConfig(
+            Website(WEASYL_ID, "Weasyl", "https://weasyl.com"),
+            True,
+            WeasylLookup(config.get("weasyl_api_key"))
+        )
+    }
     # Create websites from SITE_MAP
-    for site_conf in SITE_CONFIG.values():
+    for site_conf in site_confs.values():
         site_conf.website.save(db_obj)
     # Save contributor
     CONTRIBUTOR.save(db_obj)
@@ -217,5 +212,5 @@ if __name__ == "__main__":
     DHASH.save(db_obj)
     # Import data
     # investigate_csv()
-    validate_csv()
-    # ingest_csv(db_obj)
+    validate_csv(site_confs)
+    # ingest_csv(db_obj, site_confs)
