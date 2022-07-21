@@ -85,6 +85,7 @@ class UserLookup(ABC):
         for snapshot in snapshots:
             self.cache[snapshot.display_name] = snapshots
         self.save_cache()
+        return snapshots
 
     @abstractmethod
     def create_user_snapshots(
