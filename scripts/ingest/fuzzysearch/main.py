@@ -5,6 +5,7 @@ import datetime
 import json
 import string
 import struct
+import sys
 from typing import Dict, Optional
 
 import dateutil.parser
@@ -210,6 +211,13 @@ if __name__ == "__main__":
     SHA_HASH.save(db_obj)
     DHASH.save(db_obj)
     # Import data
-    # investigate_csv()
-    validate_csv(site_confs)
-    # ingest_csv(db_obj, site_confs)
+    args = sys.argv
+    if "investigate" in args:
+        print("Investigating csv data")
+        investigate_csv()
+    elif "ingest" in args:
+        print("Ingesting csv data")
+        ingest_csv(db_obj, site_confs)
+    else:
+        print("Validating csv data")
+        validate_csv(site_confs)
