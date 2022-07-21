@@ -2,6 +2,7 @@ import datetime
 import json
 import string
 import time
+from abc import ABC, abstractmethod
 from threading import Lock
 from typing import Dict, List, Optional
 
@@ -13,17 +14,14 @@ from faexport_db.models.archive_contributor import ArchiveContributor
 from faexport_db.models.user import UserSnapshot
 
 WEASYL_ID = "weasyl"
+FA_ID = "fa"
 
 
-class WeasylLookup:
-    username_chars = string.ascii_letters + string.digits
-    FILENAME = "./cache_weasyl_lookup.json"
+class UserLookup(ABC):
+    FILENAME: str = None
 
-    def __init__(self, api_key: Optional[str] = None) -> None:
-        self.api_key = api_key
+    def __init__(self):
         self.cache: Dict[str, List[UserSnapshot]] = self.load_cache()
-        self.last_request = datetime.datetime.now()
-        self._lock = Lock()
 
     def save_cache(self) -> None:
         data = {
@@ -62,6 +60,41 @@ class WeasylLookup:
         }
         return cache
 
+    def get_user_snapshots(
+            self,
+            display_name: str,
+            submission_id: str,
+            contributor: ArchiveContributor,
+            scan_datetime: datetime.datetime
+    ) -> List[UserSnapshot]:
+        if display_name in self.cache:
+            return self.cache[display_name]
+        snapshots = self.create_user_snapshots(display_name, submission_id, contributor, scan_datetime)
+        for snapshot in snapshots:
+            self.cache[snapshot.display_name] = snapshots
+        self.save_cache()
+
+    @abstractmethod
+    def create_user_snapshots(
+            self,
+            display_name: str,
+            submission_id: str,
+            contributor: ArchiveContributor,
+            scan_datetime: datetime.datetime
+    ) -> List[UserSnapshot]:
+        pass
+
+
+class WeasylLookup(UserLookup):
+    username_chars = string.ascii_letters + string.digits
+    FILENAME = "./cache_weasyl_lookup.json"
+
+    def __init__(self, api_key: Optional[str] = None) -> None:
+        super().__init__()
+        self.api_key = api_key
+        self.last_request = datetime.datetime.now()
+        self._lock = Lock()
+
     def fetch_api(self, path: str) -> Dict:
         with self._lock:
             while self.last_request + datetime.timedelta(seconds=1) > datetime.datetime.now():
@@ -78,15 +111,13 @@ class WeasylLookup:
             self.last_request = datetime.datetime.now()
             return resp
 
-    def get_user_snapshots(
+    def create_user_snapshots(
             self,
             display_name: str,
             submission_id: str,
             contributor: ArchiveContributor,
             scan_datetime: datetime.datetime
     ) -> List[UserSnapshot]:
-        if display_name in self.cache:
-            return self.cache[display_name]
         username_guess = "".join([char for char in display_name.lower() if char in self.username_chars])
         # Fetch weasyl user response
         try:
@@ -130,8 +161,6 @@ class WeasylLookup:
                         }
                     )
                 ]
-                self.cache[display_name] = snapshots
-                self.save_cache()
                 return snapshots
         except Exception:
             pass
@@ -158,7 +187,24 @@ class WeasylLookup:
                 }
             )
         ]
-        self.cache[display_name] = snapshots
-        self.cache[site_display_name] = snapshots
-        self.save_cache()
         return snapshots
+
+
+class FALookup(UserLookup):
+    FILENAME = "./cache_fa_users.json"
+    def create_user_snapshots(
+            self,
+            display_name: str,
+            submission_id: str,
+            contributor: ArchiveContributor,
+            scan_datetime: datetime.datetime
+    ) -> List[UserSnapshot]:
+        return [
+            UserSnapshot(
+                FA_ID,
+                display_name.replace("_", ""),
+                contributor,
+                scan_datetime,
+                display_name=display_name
+            )
+        ]

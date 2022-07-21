@@ -5,7 +5,7 @@ import datetime
 import json
 import string
 import struct
-from typing import Dict, Callable, Optional, List
+from typing import Dict, Optional
 
 import dateutil.parser
 import psycopg2
@@ -16,9 +16,8 @@ import tqdm
 
 from faexport_db.models.file import FileHash, HashAlgo, File
 from faexport_db.models.submission import SubmissionSnapshot
-from faexport_db.models.user import UserSnapshot
 from faexport_db.models.website import Website
-from scripts.ingest.fuzzysearch.weasyl_lookup import WeasylLookup
+from scripts.ingest.fuzzysearch.weasyl_lookup import WeasylLookup, UserLookup, FALookup
 
 FUZZYSEARCH_FILE = "./dump/fuzzysearch/fuzzysearch-dump-20220620.csv"
 DATA_DATE = datetime.datetime(2022, 6, 22, 0, 0, 0, 0, datetime.timezone.utc)
@@ -31,9 +30,7 @@ DHASH = HashAlgo("rust", "dhash")
 class SiteConfig:
     website: Website
     ingest_artist: bool
-    user_lookup: Callable[
-        [str, str, ArchiveContributor, datetime.datetime], Optional[List[UserSnapshot]]
-    ] = lambda display_name, sub_id, contributor, scan_datetime: None
+    user_lookup: UserLookup = None
 
 
 FA_ID = "fa"
@@ -43,15 +40,7 @@ SITE_CONFIG = {
     "furaffinity": SiteConfig(
         Website(FA_ID, "Fur Affinity", "https://furaffinity.net"),
         True,
-        lambda display_name, sub_id, contributor, scan_datetime: [
-            UserSnapshot(
-                FA_ID,
-                display_name.replace("_", ""),
-                contributor,
-                scan_datetime,
-                display_name=display_name
-            )
-        ]
+        FALookup()
     ),
     "e621": SiteConfig(
         Website("e621", "e621", "https://e621.net"),
@@ -71,8 +60,8 @@ def import_row(row: Dict[str, str], db: Database) -> Optional[SubmissionSnapshot
         scan_date = dateutil.parser.parse(updated_at)
 
     uploader_username = None
-    if site_config.ingest_artist:
-        user_snapshots = site_config.user_lookup(artists, submission_id, CONTRIBUTOR, scan_date)
+    if site_config.ingest_artist and site_config.user_lookup is not None:
+        user_snapshots = site_config.user_lookup.get_user_snapshots(artists, submission_id, CONTRIBUTOR, scan_date)
         for user_snapshot in user_snapshots:
             user_snapshot.save(db)
             uploader_username = user_snapshot.site_user_id
@@ -213,13 +202,10 @@ if __name__ == "__main__":
     db_conn = psycopg2.connect(db_dsn)
     db_obj = Database(db_conn)
     # Add weasyl to site configs
-    weasyl_lookup = WeasylLookup(config.get("weasyl_api_key"))
     SITE_CONFIG[WEASYL_ID] = SiteConfig(
         Website(WEASYL_ID, "Weasyl", "https://weasyl.com"),
         True,
-        lambda display_name, sub_id, contributor, scan_datetime: weasyl_lookup.get_user_snapshots(
-            display_name, sub_id, contributor, scan_datetime
-        )
+        WeasylLookup(config.get("weasyl_api_key"))
     )
     # Create websites from SITE_MAP
     for site_conf in SITE_CONFIG.values():
