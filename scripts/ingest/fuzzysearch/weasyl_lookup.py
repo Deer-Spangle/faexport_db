@@ -3,7 +3,7 @@ import json
 import string
 import time
 from threading import Lock
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import dateutil.parser
 import requests
@@ -19,7 +19,8 @@ class WeasylLookup:
     username_chars = string.ascii_letters + string.digits
     FILENAME = "./cache_weasyl_lookup.json"
 
-    def __init__(self):
+    def __init__(self, api_key: Optional[str] = None) -> None:
+        self.api_key = api_key
         self.cache: Dict[str, List[UserSnapshot]] = self.load_cache()
         self.last_request = datetime.datetime.now()
         self._lock = Lock()
@@ -65,11 +66,14 @@ class WeasylLookup:
         with self._lock:
             while self.last_request + datetime.timedelta(seconds=1) > datetime.datetime.now():
                 time.sleep(0.1)
+            headers = {
+                "User-Agent": "Spangle's faexport_db ingest thingy",
+            }
+            if self.api_key:
+                headers["X-Weasyl-API-Key"] = self.api_key
             resp = requests.get(
                 f"https://weasyl.com/api/{path}",
-                headers={
-                    "User-Agent": "Spangle's faexport_db ingest thingy"
-                }
+                headers=headers
             ).json()
             self.last_request = datetime.datetime.now()
             return resp

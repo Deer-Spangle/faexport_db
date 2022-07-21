@@ -39,7 +39,6 @@ class SiteConfig:
 FA_ID = "fa"
 WEASYL_ID = "weasyl"
 
-WEASYL_LOOKUP = WeasylLookup()
 SITE_CONFIG = {
     "furaffinity": SiteConfig(
         Website(FA_ID, "Fur Affinity", "https://furaffinity.net"),
@@ -53,13 +52,6 @@ SITE_CONFIG = {
                 display_name=display_name
             )
         ]
-    ),
-    "weasyl": SiteConfig(
-        Website(WEASYL_ID, "Weasyl", "https://weasyl.com"),
-        True,
-        lambda display_name, sub_id, contributor, scan_datetime: WEASYL_LOOKUP.get_user_snapshots(
-            display_name, sub_id, contributor, scan_datetime
-        )
     ),
     "e621": SiteConfig(
         Website("e621", "e621", "https://e621.net"),
@@ -220,6 +212,15 @@ if __name__ == "__main__":
     db_dsn = config["db_conn"]
     db_conn = psycopg2.connect(db_dsn)
     db_obj = Database(db_conn)
+    # Add weasyl to site configs
+    weasyl_lookup = WeasylLookup(config.get("weasyl_api_key"))
+    SITE_CONFIG[WEASYL_ID] = SiteConfig(
+        Website(WEASYL_ID, "Weasyl", "https://weasyl.com"),
+        True,
+        lambda display_name, sub_id, contributor, scan_datetime: weasyl_lookup.get_user_snapshots(
+            display_name, sub_id, contributor, scan_datetime
+        )
+    )
     # Create websites from SITE_MAP
     for site_conf in SITE_CONFIG.values():
         site_conf.website.save(db_obj)
