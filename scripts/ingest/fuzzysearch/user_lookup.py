@@ -1,3 +1,4 @@
+import dataclasses
 import datetime
 import json
 import string
@@ -9,7 +10,7 @@ from typing import Dict, List, Optional
 import dateutil.parser
 import requests
 
-from faexport_db.db import CustomJSONEncoder
+from faexport_db.db import CustomJSONEncoder, Database
 from faexport_db.models.archive_contributor import ArchiveContributor
 from faexport_db.models.user import UserSnapshot
 
@@ -17,75 +18,84 @@ WEASYL_ID = "weasyl"
 FA_ID = "fa"
 
 
+@dataclasses.dataclass
+class CacheEntry:
+    username: str
+    scan_datetimes: List[datetime.datetime]
+
+    def to_json(self) -> Dict:
+        return {
+            "username": self.username,
+            "scan_datetimes": self.scan_datetimes
+        }
+
+    @classmethod
+    def from_json(cls, data: Dict) -> "CacheEntry":
+        return cls(
+            data["username"],
+            [
+                dateutil.parser.parse(date_entry) for date_entry in data["scan_datetimes"]
+            ]
+        )
+
+
 class UserLookup(ABC):
     FILENAME: str = None
 
-    def __init__(self, site_id: str):
-        self.cache: Dict[str, List[UserSnapshot]] = self.load_cache()
+    def __init__(self, site_id: str, db: Database):
+        self.cache: Dict[str, CacheEntry] = self.load_cache()
         self.site_id = site_id
+        self.db = db
 
     def save_cache(self) -> None:
         data = {
-            key: [snapshot.to_web_json() for snapshot in snapshots]
-            for key, snapshots in self.cache.items()
+            key: entry.to_json() for key, entry in self.cache.items()
         }
         with open(self.FILENAME, "w") as f:
             json.dump(data, f, cls=CustomJSONEncoder)
 
     @classmethod
-    def load_cache(cls) -> Dict:
+    def load_cache(cls) -> Dict[str, CacheEntry]:
         try:
             with open(cls.FILENAME, "r") as f:
                 data = json.load(f)
         except FileNotFoundError:
             return {}
         cache = {
-            key: [
-                UserSnapshot(
-                    snapshot["website_id"],
-                    snapshot["site_user_id"],
-                    ArchiveContributor(
-                        snapshot["cache_data"]["archive_contributor"]["name"],
-                        contributor_id=snapshot["cache_data"]["archive_contributor"]["contributor_id"],
-                    ),
-                    dateutil.parser.parse(snapshot["cache_data"]["scan_datetime"]),
-                    user_snapshot_id=snapshot["user_snapshot_id"],
-                    ingest_datetime=snapshot["cache_data"]["ingest_datetime"],
-                    is_deleted=snapshot["user_data"]["is_deleted"],
-                    display_name=snapshot["user_data"]["display_name"],
-                    extra_data=snapshot["user_data"]["extra_data"]
-                )
-                for snapshot in snapshots
-            ]
-            for key, snapshots in data.items()
+            key: CacheEntry.from_json(cache_data) for key, cache_data in data.items()
         }
         return cache
 
-    def get_user_snapshots(
+    def get_user_cache(
             self,
             display_name: str,
             submission_id: str,
             contributor: ArchiveContributor,
             scan_datetime: datetime.datetime
-    ) -> List[UserSnapshot]:
-        if display_name in self.cache:
-            snapshots = self.cache[display_name]
-            if scan_datetime not in [snapshot.scan_datetime for snapshot in snapshots]:
-                snapshots.append(UserSnapshot(
+    ) -> CacheEntry:
+        cache_entry = self.cache.get(display_name)
+        if cache_entry is not None:
+            if scan_datetime not in cache_entry.scan_datetimes:
+                new_snapshot = UserSnapshot(
                     self.site_id,
-                    snapshots[0].site_user_id,
+                    cache_entry.username,
                     contributor,
                     scan_datetime,
                     display_name=display_name
-                ))
-                self.cache[display_name] = snapshots
+                )
+                new_snapshot.save(self.db)
+                cache_entry.scan_datetimes.append(scan_datetime)
                 self.save_cache()
-            return snapshots
+            return cache_entry
         snapshots = self.create_user_snapshots(display_name, submission_id, contributor, scan_datetime)
+        cache_entry = CacheEntry(
+            snapshots[0].site_user_id,
+            [snapshot.scan_datetime for snapshot in snapshots]
+        )
         for snapshot in snapshots:
-            self.cache[snapshot.display_name] = snapshots
+            self.cache[snapshot.display_name] = cache_entry
         self.save_cache()
-        return snapshots
+        return cache_entry
 
     @abstractmethod
     def create_user_snapshots(
@@ -97,13 +107,23 @@ class UserLookup(ABC):
     ) -> List[UserSnapshot]:
         pass
 
+    def get_username(
+            self,
+            display_name: str,
+            submission_id: str,
+            contributor: ArchiveContributor,
+            scan_date: datetime.datetime
+    ) -> str:
+        cache_entry = self.get_user_cache(display_name, submission_id, contributor, scan_date)
+        return cache_entry.username
+
 
 class WeasylLookup(UserLookup):
     username_chars = string.ascii_letters + string.digits
     FILENAME = "./cache_weasyl_lookup.json"
 
-    def __init__(self, api_key: Optional[str] = None) -> None:
-        super().__init__(WEASYL_ID)
+    def __init__(self, db: Database, api_key: Optional[str] = None) -> None:
+        super().__init__(WEASYL_ID, db)
         self.api_key = api_key
         self.last_request = datetime.datetime.now()
         self._lock = Lock()
@@ -206,8 +226,8 @@ class WeasylLookup(UserLookup):
 class FALookup(UserLookup):
     FILENAME = "./cache_fa_users.json"
 
-    def __init__(self):
-        super().__init__(FA_ID)
+    def __init__(self, db: Database):
+        super().__init__(FA_ID, db)
 
     def create_user_snapshots(
             self,

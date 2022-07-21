@@ -45,10 +45,7 @@ def import_row(row: Dict[str, str], db: Database, site_configs: Dict[str, SiteCo
 
     uploader_username = None
     if site_config.ingest_artist and site_config.user_lookup is not None:
-        user_snapshots = site_config.user_lookup.get_user_snapshots(artists, submission_id, CONTRIBUTOR, scan_date)
-        for user_snapshot in user_snapshots:
-            user_snapshot.save(db)
-            uploader_username = user_snapshot.site_user_id
+        uploader_username = site_config.user_lookup.get_username(artists, submission_id, CONTRIBUTOR, scan_date)
 
     posted_date = None
     if posted_at:
@@ -192,7 +189,7 @@ if __name__ == "__main__":
         "furaffinity": SiteConfig(
             Website(FA_ID, "Fur Affinity", "https://furaffinity.net"),
             True,
-            FALookup()
+            FALookup(db_obj)
         ),
         "e621": SiteConfig(
             Website("e621", "e621", "https://e621.net"),
@@ -201,7 +198,7 @@ if __name__ == "__main__":
         "weasyl": SiteConfig(
             Website(WEASYL_ID, "Weasyl", "https://weasyl.com"),
             True,
-            WeasylLookup(config.get("weasyl_api_key"))
+            WeasylLookup(db_obj, config.get("weasyl_api_key"))
         )
     }
     # Create websites from SITE_MAP
