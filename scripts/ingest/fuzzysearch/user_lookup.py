@@ -20,8 +20,9 @@ FA_ID = "fa"
 class UserLookup(ABC):
     FILENAME: str = None
 
-    def __init__(self):
+    def __init__(self, site_id: str):
         self.cache: Dict[str, List[UserSnapshot]] = self.load_cache()
+        self.site_id = site_id
 
     def save_cache(self) -> None:
         data = {
@@ -68,7 +69,18 @@ class UserLookup(ABC):
             scan_datetime: datetime.datetime
     ) -> List[UserSnapshot]:
         if display_name in self.cache:
-            return self.cache[display_name]
+            snapshots = self.cache[display_name]
+            if scan_datetime not in [snapshot.scan_datetime for snapshot in snapshots]:
+                snapshots.append(UserSnapshot(
+                    self.site_id,
+                    snapshots[0].site_user_id,
+                    contributor,
+                    scan_datetime,
+                    display_name=display_name
+                ))
+                self.cache[display_name] = snapshots
+                self.save_cache()
+            return snapshots
         snapshots = self.create_user_snapshots(display_name, submission_id, contributor, scan_datetime)
         for snapshot in snapshots:
             self.cache[snapshot.display_name] = snapshots
