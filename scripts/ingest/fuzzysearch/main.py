@@ -17,7 +17,7 @@ import tqdm
 from faexport_db.models.file import FileHash, HashAlgo, File
 from faexport_db.models.submission import SubmissionSnapshot
 from faexport_db.models.website import Website
-from scripts.ingest.fuzzysearch.weasyl_lookup import WeasylLookup, UserLookup, FALookup
+from scripts.ingest.fuzzysearch.user_lookup import WeasylLookup, UserLookup, FALookup
 
 FUZZYSEARCH_FILE = "./dump/fuzzysearch/fuzzysearch-dump-20220620.csv"
 DATA_DATE = datetime.datetime(2022, 6, 22, 0, 0, 0, 0, datetime.timezone.utc)

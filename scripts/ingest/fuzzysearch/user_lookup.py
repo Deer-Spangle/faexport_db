@@ -102,7 +102,7 @@ class WeasylLookup(UserLookup):
     FILENAME = "./cache_weasyl_lookup.json"
 
     def __init__(self, api_key: Optional[str] = None) -> None:
-        super().__init__()
+        super().__init__(WEASYL_ID)
         self.api_key = api_key
         self.last_request = datetime.datetime.now()
         self._lock = Lock()
@@ -204,6 +204,10 @@ class WeasylLookup(UserLookup):
 
 class FALookup(UserLookup):
     FILENAME = "./cache_fa_users.json"
+
+    def __init__(self):
+        super().__init__(FA_ID)
+
     def create_user_snapshots(
             self,
             display_name: str,
