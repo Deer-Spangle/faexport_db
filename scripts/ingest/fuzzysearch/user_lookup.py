@@ -21,21 +21,16 @@ FA_ID = "fa"
 @dataclasses.dataclass
 class CacheEntry:
     username: str
-    scan_datetimes: List[datetime.datetime]
 
     def to_json(self) -> Dict:
         return {
             "username": self.username,
-            "scan_datetimes": self.scan_datetimes
         }
 
     @classmethod
     def from_json(cls, data: Dict) -> "CacheEntry":
         return cls(
             data["username"],
-            [
-                dateutil.parser.parse(date_entry) for date_entry in data["scan_datetimes"]
-            ]
         )
 
 
@@ -75,22 +70,10 @@ class UserLookup(ABC):
     ) -> CacheEntry:
         cache_entry = self.cache.get(display_name)
         if cache_entry is not None:
-            if scan_datetime not in cache_entry.scan_datetimes:
-                new_snapshot = UserSnapshot(
-                    self.site_id,
-                    cache_entry.username,
-                    contributor,
-                    scan_datetime,
-                    display_name=display_name
-                )
-                new_snapshot.save(self.db)
-                cache_entry.scan_datetimes.append(scan_datetime)
-                self.save_cache()
             return cache_entry
         snapshots = self.create_user_snapshots(display_name, submission_id, contributor, scan_datetime)
         cache_entry = CacheEntry(
             snapshots[0].site_user_id,
-            [snapshot.scan_datetime for snapshot in snapshots]
         )
         for snapshot in snapshots:
             self.cache[snapshot.display_name] = cache_entry
