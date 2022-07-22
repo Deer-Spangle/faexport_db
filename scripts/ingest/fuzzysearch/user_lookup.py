@@ -76,6 +76,7 @@ class UserLookup(ABC):
             snapshots[0].site_user_id,
         )
         for snapshot in snapshots:
+            snapshot.save(self.db)
             self.cache[snapshot.display_name] = cache_entry
         self.save_cache()
         return cache_entry
