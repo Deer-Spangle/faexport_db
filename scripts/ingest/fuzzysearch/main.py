@@ -6,6 +6,7 @@ import json
 import string
 import struct
 import sys
+from collections import Counter
 from typing import Dict, Optional
 
 import dateutil.parser
@@ -140,11 +141,11 @@ def validate_csv(site_configs: Dict[str, SiteConfig]) -> None:
 
 
 def investigate_csv() -> None:
-    sites = set()
     weasyl_usernames = set()
     row_count = csv_row_count()
     print(f"CSV has {row_count} rows")
     earliest_date = datetime.datetime.now(datetime.timezone.utc)
+    site_list = []
     with open(FUZZYSEARCH_FILE, 'r', encoding='utf-8') as file:
         reader = csv.DictReader(file)
         for row in tqdm.tqdm(reader, total=row_count):
@@ -153,7 +154,7 @@ def investigate_csv() -> None:
                 updated_at = dateutil.parser.parse(row["updated_at"])
                 earliest_date = min(earliest_date, updated_at)
             site = drow["site"]
-            sites.add(site)
+            site_list.append(site)
             if site == "e621":
                 continue
             username = drow["artists"]
@@ -165,7 +166,10 @@ def investigate_csv() -> None:
                 if not set(username.lower()).issubset(fa_allowed_chars):
                     print(f"Found an odd FA username character: {username}")
     print(f"Earliest date: {earliest_date}")
+    site_counter = Counter(site_list)
+    sites = set(site_counter.keys())
     print(f"Site list: {sites}")
+    print("Site counter: " + ", ".join(f"{site}: {count}" for site, count in site_counter.most_common()))
     print(f"Confusing weasyl display names: {weasyl_usernames}")
 
 
