@@ -41,8 +41,13 @@ class UserLookup(ABC):
         self.cache: Dict[str, CacheEntry] = self.load_cache()
         self.site_id = site_id
         self.db = db
+        self.save_calls = 0
 
     def save_cache(self) -> None:
+        self.save_calls += 1
+        if self.save_calls < 50:
+            return
+        self.save_calls = 0
         data = {
             key: entry.to_json() for key, entry in self.cache.items()
         }
