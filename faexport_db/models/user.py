@@ -187,3 +187,24 @@ class UserSnapshot:
     def save(self, db: "Database") -> None:
         if self.user_snapshot_id is None:
             return self.create_snapshot(db)
+
+    @classmethod
+    def save_batch(cls, db: "Database", snapshots: List["UserSnapshot"]) -> None:
+        unsaved = [snapshot for snapshot in snapshots if snapshot.user_snapshot_id is None]
+        user_ids = db.bulk_insert(
+            "user_snapshots",
+            (
+                "website_id", "site_user_id", "scan_datetime", "archive_contributor_id", "ingest_datetime",
+                "is_deleted", "display_name", "extra_data"
+            ),
+            [
+                (
+                    user.website_id, user.site_user_id, user.scan_datetime, user.contributor.contributor_id,
+                    user.ingest_datetime, user.is_deleted, user.display_name, json_to_db(user.extra_data)
+                )
+                for user in unsaved
+            ],
+            "user_snapshot_id"
+        )
+        for user_snapshot, snapshot_id in zip(unsaved, user_ids):
+            user_snapshot.user_snapshot_id = snapshot_id

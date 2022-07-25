@@ -1,6 +1,6 @@
 from typing import Optional, List, Dict
 
-from faexport_db.db import Database, chunks
+from faexport_db.db import Database
 
 
 class SubmissionKeyword:
@@ -47,22 +47,16 @@ class SubmissionKeyword:
 
     @classmethod
     def save_batch(cls, db: Database, keywords: List["SubmissionKeyword"], submission_snapshot_id: int) -> None:
-        chunk_size = 100
-        keywords = [k for k in keywords if k.keyword_id is None]
-        for keywords_chunk in chunks(keywords, chunk_size):
-            keyword_vals = [
-                [submission_snapshot_id, keyword.keyword, keyword.ordinal]
-                for keyword in keywords_chunk
-            ]
-            keyword_val_tuple = tuple(sum(keyword_vals, start=[]))
-            keyword_rows = db.insert(
-                "INSERT INTO submission_snapshot_keywords (submission_snapshot_id, keyword, ordinal) VALUES " +
-                ", ".join("(%s, %s, %s)" for _ in keywords_chunk) + " RETURNING keyword_id",
-                keyword_val_tuple
-            )
-            for keyword, keyword_row in zip(keywords_chunk, keyword_rows):
-                keyword.keyword_id = keyword_row[0]
-                keyword.submission_snapshot_id = submission_snapshot_id
+        unsaved = [k for k in keywords if k.keyword_id is None]
+        keyword_ids = db.bulk_insert(
+            "submission_snapshot_keywords",
+            ("submission_snapshot_id", "keyword", "ordinal"),
+            [(submission_snapshot_id, k.keyword, k.ordinal) for k in unsaved],
+            "keyword_id"
+        )
+        for keyword, keyword_id in zip(unsaved, keyword_ids):
+            keyword.keyword_id = keyword_id
+            keyword.submission_snapshot_id = submission_snapshot_id
 
     @classmethod
     def list_for_submission_snapshot(cls, db: Database, submission_snapshot_id: int) -> List["SubmissionKeyword"]:

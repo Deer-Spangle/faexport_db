@@ -81,6 +81,33 @@ class Database:
                 raise e
         return result
 
+    def bulk_insert(
+            self,
+            table_name: str,
+            columns: Tuple[str, ...],
+            values: List[Tuple[Any, ...]],
+            id_column: str,
+            chunk_size: int = 1000
+    ) -> Iterable[int]:
+        if id_column in columns:
+            raise ValueError("ID column should not be in the list of columns")
+        if not columns:
+            raise ValueError("Column list is missing")
+        if not values:
+            return []
+        param_str = "(" + ", ".join("%s" for _ in columns) + ")"
+        for values_chunk in chunks(values, chunk_size):
+            query_str = (
+                f"INSERT INTO {table_name} ("
+                + ", ".join(columns) + ") VALUES "
+                + ", ".join(param_str for _ in values_chunk)
+                + f"RETURNING {id_column}"
+            )
+            param_values = tuple(sum([list(entry) for entry in values_chunk], start=[]))
+            inserted_rows = self.insert(query_str, param_values)
+            for row in inserted_rows:
+                yield row[0]
+
     def update(self, query: str, args: Tuple) -> None:
         with self.conn.cursor() as cur:
             try:
