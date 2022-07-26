@@ -1,3 +1,4 @@
+import csv
 import pathlib
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
@@ -11,6 +12,12 @@ from faexport_db.models.submission import SubmissionSnapshot
 from faexport_db.models.user import UserSnapshot
 
 RowType = TypeVar("RowType")
+
+
+def csv_count_rows(file_path: Union[str, pathlib.Path]) -> int:
+    with open(file_path, "r", encoding="utf-8") as file:
+        reader = csv.reader(file)
+        return sum(1 for _ in tqdm.tqdm(reader, desc="Counting rows"))
 
 
 @contextmanager
