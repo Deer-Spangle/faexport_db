@@ -61,7 +61,8 @@ class SubmissionKeyword:
         )
         for keyword, keyword_id in zip(unsaved, keyword_ids):
             keyword.keyword_id = keyword_id
-            keyword.submission_snapshot_id = submission_snapshot_id
+            if keyword.submission_snapshot_id is None:
+                keyword.submission_snapshot_id = submission_snapshot_id
 
     @classmethod
     def list_for_submission_snapshot(cls, db: Database, submission_snapshot_id: int) -> List["SubmissionKeyword"]:

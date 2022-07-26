@@ -318,12 +318,46 @@ class SubmissionSnapshot:
             SubmissionKeyword.save_batch(db, self.keywords, self.submission_snapshot_id)
         # Save files
         if self.files is not None:
-            for file in self.files:
-                file.save(db, self.submission_snapshot_id)
+            File.save_batch(db, self.files, self.submission_snapshot_id)
 
     def save(self, db: "Database") -> None:
         if self.submission_snapshot_id is None:
             self.create_snapshot(db)
+
+    @classmethod
+    def save_batch(cls, db: Database, snapshots: List["SubmissionSnapshot"]) -> None:
+        unsaved = [snapshot for snapshot in snapshots if snapshot.submission_snapshot_id is None]
+        snapshot_ids = db.bulk_insert(
+            "submission_snapshots",
+            (
+                "website_id", "site_submission_id", "scan_datetime", "archive_contributor_id", "ingest_datetime",
+                "uploader_site_user_id", "is_deleted", "title", "description", "datetime_posted", "keywords_recorded",
+                "extra_data"
+            ),
+            [
+                (
+                    snapshot.website_id, snapshot.site_submission_id, snapshot.scan_datetime,
+                    snapshot.contributor.contributor_id, snapshot.ingest_datetime, snapshot.uploader_site_user_id,
+                    snapshot.is_deleted, snapshot.title, snapshot.description, snapshot.datetime_posted,
+                    snapshot.keywords_recorded, json_to_db(snapshot.extra_data))
+                for snapshot in unsaved
+            ],
+            "submission_snapshot_id"
+        )
+        for snapshot, snapshot_id in zip(unsaved, snapshot_ids):
+            snapshot.submission_snapshot_id = snapshot_id
+            if snapshot.keywords is not None:
+                for keyword in snapshot.keywords:
+                    keyword.submission_snapshot_id = snapshot_id
+            if snapshot.files is not None:
+                for file in snapshot.files:
+                    file.submission_snapshot_id = snapshot_id
+        # Save keywords
+        keywords = sum([snapshot.keywords for snapshot in snapshots if snapshot.keywords is not None], start=[])
+        SubmissionKeyword.save_batch(db, keywords, None)
+        # Save files
+        files = sum([snapshot.files for snapshot in snapshots if snapshot.files is not None], start=[])
+        File.save_batch(db, files, None)
 
     @classmethod
     def list_all(cls, db: Database, website_id: str) -> Iterable["SubmissionSnapshot"]:

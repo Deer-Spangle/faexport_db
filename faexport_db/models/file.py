@@ -88,8 +88,31 @@ class File:
         self.submission_snapshot_id = submission_snapshot_id
         if self.file_id is None:
             self.create_snapshot(db)
-        for file_hash in self.hashes:
-            file_hash.save(db, self.file_id)
+        FileHash.save_batch(db, self.hashes, self.file_id)
+
+    @classmethod
+    def save_batch(cls, db: Database, files: List["File"], submission_snapshot_id: Optional[int]) -> None:
+        unsaved = [file for file in files if file.file_id is None]
+        file_ids = db.bulk_insert(
+            "submission_snapshot_files",
+            ("submission_snapshot_id", "site_file_id", "file_url", "file_size", "extra_data"),
+            [
+                (
+                    file.submission_snapshot_id or submission_snapshot_id, file.site_file_id, file.file_url,
+                    file.file_size, json_to_db(file.extra_data)
+                )
+                for file in unsaved
+            ],
+            "file_id"
+        )
+        for file, file_id in zip(unsaved, file_ids):
+            file.file_id = file_id
+            if file.submission_snapshot_id is None:
+                file.submission_snapshot_id = submission_snapshot_id
+            for file_hash in file.hashes:
+                file_hash.file_id = file_id
+        file_hashes = sum([file.hashes for file in files], start=[])
+        FileHash.save_batch(db, file_hashes, None)
 
     @classmethod
     def list_for_submission_snapshot(cls, db: Database, submission_snapshot_id: int) -> List["File"]:
@@ -156,6 +179,23 @@ class FileHash:
         self.file_id = file_id
         if self.hash_id is None:
             self.create_snapshot(db)
+
+    @classmethod
+    def save_batch(cls, db: Database, file_hashes: List["FileHash"], file_id: Optional[int]) -> None:
+        unsaved = [file_hash for file_hash in file_hashes if file_hash.hash_id is None]
+        hash_ids = db.bulk_insert(
+            "submission_snapshot_file_hashes",
+            ("file_id", "algo_id", "hash_values"),
+            [(file_hash.file_id or file_id, file_hash.algo_id, file_hash.hash_value) for file_hash in unsaved],
+            "hash_id"
+        )
+        for file_hash, hash_id in zip(unsaved, hash_ids):
+            file_hash.hash_id = hash_id
+            if file_hash.file_id is None:
+                file_hash.file_id = file_id
+
+
+
     
     @classmethod
     def list_for_file(cls, db: Database, file_id: int) -> List["FileHash"]:
