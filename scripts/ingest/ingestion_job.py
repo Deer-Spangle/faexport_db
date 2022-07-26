@@ -44,8 +44,6 @@ class IngestionJob(ABC):
         parser = argparse.ArgumentParser(
             description=f"Ingest data into faexport_db using the {self.__class__.__name__} ingestion job."
         )
-        parser.add_argument('integers', metavar='N', type=int, nargs='+',
-                            help='an integer for the accumulator')
         parser_func = parser.add_mutually_exclusive_group()
         parser_func.add_argument("--validate", action="store_true", help="Run validation over the data source")
         parser_func.add_argument(
