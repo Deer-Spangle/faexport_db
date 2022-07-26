@@ -12,11 +12,12 @@ from faexport_db.models.archive_contributor import ArchiveContributor
 from faexport_db.models.user import UserSnapshot
 
 from faexport_db.db import Database
-from scripts.ingest.fa_indexer.main import setup_initial_data
+from faexport_db.models.website import Website
 from scripts.ingest.ingestion_job import IngestionJob, RowType, cache_in_file, csv_count_rows
 
 CSV_LOCATION = "./dump/foxoblue_userlist/data-1642685938898.csv"
 SITE_ID = "fa"
+WEBSITE = Website(SITE_ID, "Fur Affinity", "https://furaffinity.net")
 DATA_DATE = datetime.datetime(2022, 1, 20, 13, 38, 58, tzinfo=datetime.timezone.utc)
 CONTRIBUTOR = ArchiveContributor("Foxo//Blue FA user list export")
 
@@ -86,7 +87,8 @@ if __name__ == "__main__":
     db_dsn = config["db_conn"]
     db_conn = psycopg2.connect(db_dsn)
     db_obj = Database(db_conn)
-    setup_initial_data(db_obj, CONTRIBUTOR)
+    WEBSITE.save(db_obj)
+    CONTRIBUTOR.save(db_obj)
 
     ingestion_job = FoxoBlueUserListIngestionJob()
     ingestion_job.process(db_obj)

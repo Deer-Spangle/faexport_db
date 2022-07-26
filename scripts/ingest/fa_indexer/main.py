@@ -21,6 +21,7 @@ from faexport_db.models.website import Website
 
 DATA_DIR = "./dump/fa-indexer/"
 SITE_ID = "fa"
+WEBSITE = Website(SITE_ID, "Fur Affinity", "https://furaffinity.net")
 DATA_DATE = datetime.datetime(2019, 12, 4, 0, 0, 0, tzinfo=datetime.timezone.utc)
 CONTRIBUTOR = ArchiveContributor("fa-indexer data ingest")
 
@@ -140,12 +141,6 @@ def scan_directory(dsn: str, dir_path: str) -> None:
         process.join()
 
 
-def setup_initial_data(db: Database, contributor: ArchiveContributor) -> None:
-    website = Website(SITE_ID, "Fur Affinity", "https://furaffinity.net")
-    website.save(db)
-    contributor.save(db)
-
-
 if __name__ == "__main__":
     config_path = "./config.json"
     with open(config_path, "r") as conf_file:
@@ -153,5 +148,7 @@ if __name__ == "__main__":
     db_dsn = config["db_conn"]
     db_conn = psycopg2.connect(db_dsn)
     db_obj = Database(db_conn)
-    setup_initial_data(db_obj, CONTRIBUTOR)
+    WEBSITE.save(db_obj)
+    CONTRIBUTOR.save(db_obj)
+
     scan_directory(db_dsn, DATA_DIR)

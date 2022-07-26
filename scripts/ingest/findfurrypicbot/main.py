@@ -12,11 +12,12 @@ import tqdm
 from faexport_db.db import Database
 from faexport_db.models.file import FileHash, HashAlgo, File
 from faexport_db.models.submission import SubmissionSnapshot
-from scripts.ingest.fa_indexer.main import setup_initial_data
+from faexport_db.models.website import Website
 from scripts.ingest.ingestion_job import IngestionJob
 
 DB_LOCATION = "./dump/findfurrypicbot/fa_bin/fa_bin.sqlite3"
 SITE_ID = "fa"
+WEBSITE = Website(SITE_ID, "Fur Affinity", "https://furaffinity.net")
 DATA_DATE = datetime.datetime(2020, 1, 9, 0, 0, 0, tzinfo=datetime.timezone.utc)
 CONTRIBUTOR = ArchiveContributor("FindFurryPicBot data ingest")
 AHASH = HashAlgo("python", "ahash")
@@ -81,7 +82,8 @@ if __name__ == "__main__":
     db_dsn = config["db_conn"]
     db_conn = psycopg2.connect(db_dsn)
     db_obj = Database(db_conn)
-    setup_initial_data(db_obj, CONTRIBUTOR)
+    WEBSITE.save(db_obj)
+    CONTRIBUTOR.save(db_obj)
     AHASH.save(db_obj)
     DHASH.save(db_obj)
     PHASH.save(db_obj)
