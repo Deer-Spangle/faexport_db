@@ -32,6 +32,9 @@ RowType = TypeVar("RowType")
 class IngestionJob(ABC):
     SAVE_AFTER = 100
 
+    def __init__(self, *, skip_rows: int = 0) -> None:
+        self.skip_rows = skip_rows
+
     @abstractmethod
     def row_count(self) -> Optional[int]:
         pass
@@ -50,6 +53,8 @@ class IngestionJob(ABC):
 
         progress = tqdm.tqdm(self.iterate_rows(), desc="Scanning data", total=self.row_count())
         for row_num, row in enumerate(progress):
+            if row_num < self.skip_rows:
+                continue
             result = self.convert_row(row)
             # Add result to cached rows
             for snapshot in result.submission_snapshots:
