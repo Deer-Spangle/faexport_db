@@ -1,5 +1,7 @@
+import pathlib
 from abc import ABC, abstractmethod
-from typing import TypeVar, Optional, Iterator, List, Tuple
+from contextlib import contextmanager
+from typing import TypeVar, Optional, Iterator, List, Tuple, Callable, Union
 
 import tqdm
 
@@ -9,6 +11,19 @@ from faexport_db.models.submission import SubmissionSnapshot
 from faexport_db.models.user import UserSnapshot
 
 RowType = TypeVar("RowType")
+
+
+@contextmanager
+def cache_in_file(file_path: Union[str, pathlib.Path], generator: Callable[[], str]) -> str:
+    try:
+        with open(file_path, "r") as cache_file:
+            return cache_file.read()
+    except FileNotFoundError:
+        pass
+    result = generator()
+    with open(file_path, "w") as cache_file:
+        cache_file.write(result)
+    return result
 
 
 class IngestionJob(ABC):
