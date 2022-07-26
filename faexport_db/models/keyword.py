@@ -46,12 +46,17 @@ class SubmissionKeyword:
             self.create_snapshot(db)
 
     @classmethod
-    def save_batch(cls, db: Database, keywords: List["SubmissionKeyword"], submission_snapshot_id: int) -> None:
+    def save_batch(
+            cls,
+            db: Database,
+            keywords: List["SubmissionKeyword"],
+            submission_snapshot_id: Optional[int]
+    ) -> None:
         unsaved = [k for k in keywords if k.keyword_id is None]
         keyword_ids = db.bulk_insert(
             "submission_snapshot_keywords",
             ("submission_snapshot_id", "keyword", "ordinal"),
-            [(submission_snapshot_id, k.keyword, k.ordinal) for k in unsaved],
+            [(k.submission_snapshot_id or submission_snapshot_id, k.keyword, k.ordinal) for k in unsaved],
             "keyword_id"
         )
         for keyword, keyword_id in zip(unsaved, keyword_ids):
