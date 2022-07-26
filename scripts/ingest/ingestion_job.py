@@ -111,11 +111,15 @@ class IngestionJob(ABC):
                 continue
             self.validate_row(row)
 
+    def investigate_data(self) -> None:
+        print(f"No investigation configured for {self.__class__.__name__}")
+
     def process(self, db: Database) -> None:
         parser = self.argument_parser()
         args = parser.parse_args()
         if args.investigate:
-            print("Data investigation not yet supported")  # TODO
+            print("Investigating data")
+            self.investigate_data()
             return
         if args.ingest:
             print("Ingesting data")
