@@ -25,33 +25,6 @@ CONTRIBUTOR = ArchiveContributor("e621 db_export")
 MD5_HASH = HashAlgo("any", "md5")
 
 
-def validate_row(row: List[str]) -> None:
-    post_id, uploader_id, created_at, md5, source, rating, image_width, image_height, tag_string, locked_tags, fav_count, file_ext, parent_id, change_seq, approver_id, file_size, comment_count, description, duration, updated_at, is_deleted, is_pending, is_flagged, score, up_score, down_score, is_rating_locked, is_status_locked, is_note_locked = row
-    assert created_at
-    assert dateutil.parser.parse(created_at) is not None
-    assert base64.b64decode(md5.encode('ascii')) is not None
-    assert is_deleted in "tf"
-    assert md5
-    assert len(md5) > 4
-    assert int(image_width) is not None  # A few swf files have negative image width/height
-    assert int(image_height) is not None
-    if duration:
-        assert float(duration) is not None  # Some swf files have 0.0 duration
-    assert rating in "eqs"
-    assert int(fav_count) >= 0
-    assert int(comment_count) is not None  # Some posts have negative comment count, e.g. 1195029
-    if updated_at:
-        assert dateutil.parser.parse(updated_at) is not None
-    assert is_pending in "tf"
-    assert is_flagged in "tf"
-    assert int(score) is not None
-    assert int(down_score) <= 0
-    assert int(up_score) >= 0
-    assert is_rating_locked in "tf"
-    assert is_status_locked in "tf"
-    assert is_note_locked in "tf"
-
-
 class E621IngestJob(IngestionJob):
 
     def __init__(self, *, skip_rows: int = 0):
@@ -120,6 +93,32 @@ class E621IngestJob(IngestionJob):
             },
         )
         return FormatResponse([snapshot])
+
+    def validate_row(self, row: List[str]) -> None:
+        post_id, uploader_id, created_at, md5, source, rating, image_width, image_height, tag_string, locked_tags, fav_count, file_ext, parent_id, change_seq, approver_id, file_size, comment_count, description, duration, updated_at, is_deleted, is_pending, is_flagged, score, up_score, down_score, is_rating_locked, is_status_locked, is_note_locked = row
+        assert created_at
+        assert dateutil.parser.parse(created_at) is not None
+        assert base64.b64decode(md5.encode('ascii')) is not None
+        assert is_deleted in "tf"
+        assert md5
+        assert len(md5) > 4
+        assert int(image_width) is not None  # A few swf files have negative image width/height
+        assert int(image_height) is not None
+        if duration:
+            assert float(duration) is not None  # Some swf files have 0.0 duration
+        assert rating in "eqs"
+        assert int(fav_count) >= 0
+        assert int(comment_count) is not None  # Some posts have negative comment count, e.g. 1195029
+        if updated_at:
+            assert dateutil.parser.parse(updated_at) is not None
+        assert is_pending in "tf"
+        assert is_flagged in "tf"
+        assert int(score) is not None
+        assert int(down_score) <= 0
+        assert int(up_score) >= 0
+        assert is_rating_locked in "tf"
+        assert is_status_locked in "tf"
+        assert is_note_locked in "tf"
 
     def iterate_rows(self) -> Iterator[RowType]:
         with open(CSV_LOCATION, "r", encoding="utf-8") as file:

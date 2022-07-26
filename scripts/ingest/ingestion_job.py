@@ -47,6 +47,9 @@ class IngestionJob(ABC):
     def convert_row(self, row: RowType) -> FormatResponse:
         pass
 
+    def validate_row(self, row: RowType) -> None:
+        pass  # By default, do nothing. Allow ingestion jobs to override.
+
     @abstractmethod
     def iterate_rows(self) -> Iterator[RowType]:
         pass
@@ -85,3 +88,10 @@ class IngestionJob(ABC):
             )
         SubmissionSnapshot.save_batch(db, [snapshot for _, snapshot in submissions_by_row])
         UserSnapshot.save_batch(db, [snapshot for _, snapshot in users_by_row])
+
+    def validate_data(self) -> None:
+        progress = tqdm.tqdm(self.iterate_rows(), desc="Validating data", total=self.row_count())
+        for row_num, row in enumerate(progress):
+            if row_num < self.skip_rows:
+                continue
+            self.validate_row(row)
