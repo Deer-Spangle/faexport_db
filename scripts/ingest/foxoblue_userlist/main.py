@@ -10,11 +10,10 @@ import psycopg2
 from faexport_db.ingest_formats.base import FormatResponse
 from faexport_db.models.archive_contributor import ArchiveContributor
 from faexport_db.models.user import UserSnapshot
-import tqdm
 
 from faexport_db.db import Database
 from scripts.ingest.fa_indexer.main import setup_initial_data
-from scripts.ingest.ingestion_job import IngestionJob, RowType, cache_in_file
+from scripts.ingest.ingestion_job import IngestionJob, RowType, cache_in_file, csv_count_rows
 
 CSV_LOCATION = "./dump/foxoblue_userlist/data-1642685938898.csv"
 SITE_ID = "fa"
@@ -22,18 +21,13 @@ DATA_DATE = datetime.datetime(2022, 1, 20, 13, 38, 58, tzinfo=datetime.timezone.
 CONTRIBUTOR = ArchiveContributor("Foxo//Blue FA user list export")
 
 
-class FoxoBlueUserListIngestor(IngestionJob):
+class FoxoBlueUserListIngestionJob(IngestionJob):
 
     def __init__(self):
         super().__init__()
         self.csv_location = CSV_LOCATION
-        self.row_count_file = Path(__file__) / "row_count.txt"
-        self.earliest_date_file = Path(__file__) / "earliest_date.txt"
-
-    def _count_rows_in_csv(self) -> int:
-        with open(self.csv_location, "r", encoding="utf-8") as file:
-            reader = csv.reader(file)
-            return sum(1 for _ in tqdm.tqdm(reader, desc="Counting rows"))
+        self.row_count_file = Path(__file__) / "cache_row_count.txt"
+        self.earliest_date_file = Path(__file__) / "cache_earliest_date.txt"
 
     def _earliest_date_in_csv(self) -> datetime.datetime:
         earliest = "zzz"
@@ -45,7 +39,7 @@ class FoxoBlueUserListIngestor(IngestionJob):
         return dateutil.parser.parse(earliest)
 
     def row_count(self) -> Optional[int]:
-        return int(cache_in_file(self.row_count_file, lambda: str(self._count_rows_in_csv())))
+        return int(cache_in_file(self.row_count_file, lambda: str(csv_count_rows(self.csv_location))))
 
     def earliest_date(self) -> datetime.datetime:
         return dateutil.parser.parse(
@@ -94,5 +88,5 @@ if __name__ == "__main__":
     db_obj = Database(db_conn)
     setup_initial_data(db_obj, CONTRIBUTOR)
 
-    ingestion_job = FoxoBlueUserListIngestor()
+    ingestion_job = FoxoBlueUserListIngestionJob()
     ingestion_job.ingest_data(db_obj)
