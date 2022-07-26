@@ -1,3 +1,4 @@
+import argparse
 import csv
 import pathlib
 from abc import ABC, abstractmethod
@@ -38,6 +39,22 @@ class IngestionJob(ABC):
 
     def __init__(self, *, skip_rows: int = 0) -> None:
         self.skip_rows = skip_rows
+
+    def argument_parser(self) -> argparse.ArgumentParser:
+        parser = argparse.ArgumentParser(
+            description=f"Ingest data into faexport_db using the {self.__class__.__name__} ingestion job."
+        )
+        parser.add_argument('integers', metavar='N', type=int, nargs='+',
+                            help='an integer for the accumulator')
+        parser_func = parser.add_mutually_exclusive_group()
+        parser_func.add_argument("--validate", action="store_true", help="Run validation over the data source")
+        parser_func.add_argument(
+            "--investigate",
+            action="store_true",
+            help="Run investigation scripts over the data source"
+        )
+        parser_func.add_argument("--ingest", action="store_true", help="Ingest data into the faexport_db database")
+        return parser
 
     @abstractmethod
     def row_count(self) -> Optional[int]:
@@ -95,3 +112,16 @@ class IngestionJob(ABC):
             if row_num < self.skip_rows:
                 continue
             self.validate_row(row)
+
+    def process(self, db: Database) -> None:
+        parser = self.argument_parser()
+        args = parser.parse_args()
+        if args.investigate:
+            print("Data investigation not yet supported")  # TODO
+            return
+        if args.ingest:
+            print("Ingesting data")
+            self.ingest_data(db)
+            return
+        print("Validating data")
+        self.validate_data()

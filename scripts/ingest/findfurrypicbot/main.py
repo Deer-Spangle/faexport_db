@@ -91,4 +91,4 @@ if __name__ == "__main__":
     sqlite_conn.row_factory = sqlite3.Row
 
     ingestor = FindFurryPicBotIngestion(sqlite_conn)
-    ingestor.ingest_data(db_obj)
+    ingestor.process(db_obj)

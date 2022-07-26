@@ -89,4 +89,4 @@ if __name__ == "__main__":
     setup_initial_data(db_obj, CONTRIBUTOR)
 
     ingestion_job = FoxoBlueUserListIngestionJob()
-    ingestion_job.ingest_data(db_obj)
+    ingestion_job.process(db_obj)

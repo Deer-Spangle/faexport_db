@@ -140,4 +140,4 @@ if __name__ == "__main__":
     MD5_HASH.save(db_obj)
 
     ingestion_job = E621IngestJob()
-    ingestion_job.ingest_data(db_obj)
+    ingestion_job.process(db_obj)
