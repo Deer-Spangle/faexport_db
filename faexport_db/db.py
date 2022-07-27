@@ -20,7 +20,7 @@ def merge_dicts(base: Optional[Dict[str, Any]], overlay: Optional[Dict[str, Any]
 def json_to_db(data: Optional[Dict[str, Any]]) -> Optional[str]:
     if data is None:
         return None
-    return json.dumps(data)
+    return json.dumps(data, cls=CustomJSONEncoder)
 
 
 N = TypeVar("N")
