@@ -47,8 +47,8 @@ class FuzzysearchIngestionJob(IngestionJob):
         super().__init__(skip_rows=skip_rows)
         self.site_configs = site_configs
         self.csv_location = FUZZYSEARCH_FILE
-        self.row_count_file = Path(__file__) / "cache_row_count.txt"
-        self.earliest_date_file = Path(__file__) / "cache_earliest_date.txt"
+        self.row_count_file = Path(__file__).parent / "cache_row_count.txt"
+        self.earliest_date_file = Path(__file__).parent / "cache_earliest_date.txt"
         self._earliest_date = None
         self._earliest_date = self.earliest_date()
 

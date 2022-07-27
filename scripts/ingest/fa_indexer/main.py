@@ -6,10 +6,12 @@ import multiprocessing
 import multiprocessing.pool
 from multiprocessing import Queue, Process
 from queue import Empty
-from typing import Dict
+from typing import Dict, Iterator, Optional
 
 import psycopg2
 import dateutil.parser
+
+from faexport_db.ingest_formats.base import FormatResponse
 from faexport_db.models.archive_contributor import ArchiveContributor
 import tqdm
 
@@ -18,6 +20,7 @@ from faexport_db.models.file import File
 from faexport_db.models.submission import SubmissionSnapshot
 from faexport_db.models.user import UserSnapshot
 from faexport_db.models.website import Website
+from scripts.ingest.ingestion_job import IngestionJob, RowType
 
 DATA_DIR = "./dump/fa-indexer/"
 SITE_ID = "fa"
@@ -141,6 +144,19 @@ def scan_directory(dsn: str, dir_path: str) -> None:
         process.join()
 
 
+class FAIndexerIngestionJob(IngestionJob):
+    def __init__(self):
+
+    def row_count(self) -> Optional[int]:
+        pass
+
+    def convert_row(self, row: RowType) -> FormatResponse:
+        pass
+
+    def iterate_rows(self) -> Iterator[RowType]:
+        pass
+
+
 if __name__ == "__main__":
     config_path = "./config.json"
     with open(config_path, "r") as conf_file:
@@ -151,4 +167,6 @@ if __name__ == "__main__":
     WEBSITE.save(db_obj)
     CONTRIBUTOR.save(db_obj)
 
+    ingestion_job = FAIndexerIngestionJob(DATA_DIR)
+    ingestion_job.process(db_obj)
     scan_directory(db_dsn, DATA_DIR)

@@ -30,7 +30,7 @@ class E621IngestJob(IngestionJob):
     def __init__(self, *, skip_rows: int = 0):
         super().__init__(skip_rows=skip_rows)
         self.csv_location = CSV_LOCATION
-        self.row_count_file = Path(__file__) / "cache_row_count.txt"
+        self.row_count_file = Path(__file__).parent / "cache_row_count.txt"
 
         # Set up field size limit to be able to handle e621 data dumps
         max_int = sys.maxsize

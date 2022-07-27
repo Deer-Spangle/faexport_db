@@ -27,8 +27,8 @@ class FoxoBlueUserListIngestionJob(IngestionJob):
     def __init__(self):
         super().__init__()
         self.csv_location = CSV_LOCATION
-        self.row_count_file = Path(__file__) / "cache_row_count.txt"
-        self.earliest_date_file = Path(__file__) / "cache_earliest_date.txt"
+        self.row_count_file = Path(__file__).parent / "cache_row_count.txt"
+        self.earliest_date_file = Path(__file__).parent / "cache_earliest_date.txt"
 
     def _earliest_date_in_csv(self) -> datetime.datetime:
         earliest = "zzz"
