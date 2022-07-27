@@ -179,6 +179,8 @@ class WeasylLookup(UserLookup):
         except Exception:
             pass
         resp = self.fetch_api(f"/submissions/{submission_id}/view")
+        if "error" in resp and resp["error"]["name"] == "submissionRecordMissing":
+            return []
         site_username = resp["owner_login"]
         site_display_name = resp["owner"]
         snapshots = [
