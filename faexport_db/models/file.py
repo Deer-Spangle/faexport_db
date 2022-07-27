@@ -185,7 +185,7 @@ class FileHash:
         unsaved = [file_hash for file_hash in file_hashes if file_hash.hash_id is None]
         hash_ids = db.bulk_insert(
             "submission_snapshot_file_hashes",
-            ("file_id", "algo_id", "hash_values"),
+            ("file_id", "algo_id", "hash_value"),
             [(file_hash.file_id or file_id, file_hash.algo_id, file_hash.hash_value) for file_hash in unsaved],
             "hash_id"
         )
@@ -194,9 +194,6 @@ class FileHash:
             if file_hash.file_id is None:
                 file_hash.file_id = file_id
 
-
-
-    
     @classmethod
     def list_for_file(cls, db: Database, file_id: int) -> List["FileHash"]:
         hash_rows = db.select(
