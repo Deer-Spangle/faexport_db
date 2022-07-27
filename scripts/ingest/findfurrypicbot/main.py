@@ -7,7 +7,6 @@ import psycopg2
 
 from faexport_db.ingest_formats.base import FormatResponse
 from faexport_db.models.archive_contributor import ArchiveContributor
-import tqdm
 
 from faexport_db.db import Database
 from faexport_db.models.file import FileHash, HashAlgo, File
@@ -64,12 +63,8 @@ class FindFurryPicBotIngestion(IngestionJob):
 
     def iterate_rows(self) -> Iterator[sqlite3.Row]:
         cur = self.sqlite_db.cursor()
-        result = cur.execute("SELECT COUNT(1) as count FROM posts")
-        row_count = next(result)["count"]
-        cur.close()
-        cur = self.sqlite_db.cursor()
         result = cur.execute("SELECT id, a_hash, p_hash, d_hash, w_hash FROM posts")
-        for row in tqdm.tqdm(result, total=row_count):
+        for row in result:
             yield row
         self.sqlite_db.commit()
         cur.close()
