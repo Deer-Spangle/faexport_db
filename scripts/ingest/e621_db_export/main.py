@@ -19,7 +19,7 @@ from faexport_db.models.website import Website
 from scripts.ingest.ingestion_job import IngestionJob, RowType, cache_in_file, csv_count_rows
 
 CSV_LOCATION = "./dump/e621_db_export/posts-2022-07-13.csv"
-WEBSITE = Website("e6", "e621", "https://e621.net")
+WEBSITE = Website("e621", "e621", "https://e621.net")
 DATA_DATE = datetime.datetime(2022, 7, 13, 0, 0, 0, tzinfo=datetime.timezone.utc)
 CONTRIBUTOR = ArchiveContributor("e621 db_export")
 MD5_HASH = HashAlgo("any", "md5")
