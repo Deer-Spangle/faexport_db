@@ -152,6 +152,7 @@ class FuzzysearchIngestionJob(IngestionJob):
 
     def investigate_data(self) -> None:
         weasyl_usernames = set()
+        odd_weasyl_usernames = set()
         row_count = self.row_count()
         print(f"CSV has {row_count} rows")
         earliest_date = "zzz"
@@ -169,8 +170,9 @@ class FuzzysearchIngestionJob(IngestionJob):
                     continue
                 username = drow["artists"]
                 if site == "weasyl":
+                    weasyl_usernames.add(username)
                     if not set(username).issubset(weasyl_allowed_chars):
-                        weasyl_usernames.add(username)
+                        odd_weasyl_usernames.add(username)
                         print(f"Found an off weasyl username character: {username}")
                 if site == "furaffinity":
                     if not set(username.lower()).issubset(fa_allowed_chars):
@@ -180,7 +182,8 @@ class FuzzysearchIngestionJob(IngestionJob):
         sites = set(site_counter.keys())
         print(f"Site list: {sites}")
         print("Site counter: " + ", ".join(f"{site}: {count}" for site, count in site_counter.most_common()))
-        print(f"Confusing weasyl display names: {weasyl_usernames}")
+        print(f"There's a total of {len(weasyl_usernames)} unique weasyl usernames")
+        print(f"Confusing weasyl display names: {odd_weasyl_usernames}")
 
     def iterate_rows(self) -> Iterator[Dict]:
         with open(FUZZYSEARCH_FILE, "r", encoding="utf-8") as file:
