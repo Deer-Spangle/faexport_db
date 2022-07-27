@@ -59,7 +59,7 @@ class FuzzysearchIngestionJob(IngestionJob):
         earliest = "zzz"
         with open(self.csv_location, "r", encoding="utf-8") as file:
             reader = csv.reader(file)
-            for line in tqdm.tqdm(reader, desc="Finding earliest date"):
+            for line in tqdm.tqdm(reader, desc="Finding earliest date", total=self.row_count()):
                 if line[5]:
                     earliest = min(earliest, line[5])
         return dateutil.parser.parse(earliest)

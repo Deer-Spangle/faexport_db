@@ -6,6 +6,7 @@ from typing import Optional, Iterator
 
 import dateutil.parser
 import psycopg2
+import tqdm
 
 from faexport_db.ingest_formats.base import FormatResponse
 from faexport_db.models.archive_contributor import ArchiveContributor
@@ -34,7 +35,7 @@ class FoxoBlueUserListIngestionJob(IngestionJob):
         earliest = "zzz"
         with open(self.csv_location, "r", encoding="utf-8") as file:
             reader = csv.reader(file)
-            for line in reader:
+            for line in tqdm.tqdm(reader, desc="Finding earliest date", total=self.row_count()):
                 if line[5]:
                     earliest = min(earliest, line[5])
         return dateutil.parser.parse(earliest)
