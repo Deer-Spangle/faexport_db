@@ -83,12 +83,12 @@ class IngestionJob(ABC):
             for snapshot in result.user_snapshots:
                 users_by_row.append((row_num, snapshot))
             # Check whether to save submissions
-            if len(submissions_by_row) > self.SAVE_AFTER:
+            if len(submissions_by_row) >= self.SAVE_AFTER:
                 progress.set_description(f"Saving {len(submissions_by_row)} submission snapshots")
                 SubmissionSnapshot.save_batch(db, [snapshot for _, snapshot in submissions_by_row])
                 submissions_by_row.clear()
             # Check whether to save users
-            if len(users_by_row) > self.SAVE_AFTER:
+            if len(users_by_row) >= self.SAVE_AFTER:
                 progress.set_description(f"Saving {len(users_by_row)} user snapshots")
                 UserSnapshot.save_batch(db, [snapshot for _, snapshot in users_by_row])
                 users_by_row.clear()
