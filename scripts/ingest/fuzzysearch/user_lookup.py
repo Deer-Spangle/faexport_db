@@ -5,7 +5,7 @@ import string
 import time
 from abc import ABC, abstractmethod
 from threading import Lock
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 import dateutil.parser
 import requests
@@ -66,26 +66,6 @@ class UserLookup(ABC):
         }
         return cache
 
-    def get_user_cache(
-            self,
-            display_name: str,
-            submission_id: str,
-            contributor: ArchiveContributor,
-            scan_datetime: datetime.datetime
-    ) -> CacheEntry:
-        cache_entry = self.cache.get(display_name)
-        if cache_entry is not None:
-            return cache_entry
-        snapshots = self.create_user_snapshots(display_name, submission_id, contributor, scan_datetime)
-        cache_entry = CacheEntry(
-            snapshots[0].site_user_id,
-        )
-        for snapshot in snapshots:
-            snapshot.save(self.db)
-            self.cache[snapshot.display_name] = cache_entry
-        self.save_cache()
-        return cache_entry
-
     @abstractmethod
     def create_user_snapshots(
             self,
@@ -96,15 +76,27 @@ class UserLookup(ABC):
     ) -> List[UserSnapshot]:
         pass
 
-    def get_username(
+    def lookup_user(
             self,
             display_name: str,
             submission_id: str,
             contributor: ArchiveContributor,
             scan_date: datetime.datetime
-    ) -> str:
-        cache_entry = self.get_user_cache(display_name, submission_id, contributor, scan_date)
-        return cache_entry.username
+    ) -> Tuple[Optional[str], List[UserSnapshot]]:
+        cache_entry = self.cache.get(display_name)
+        if cache_entry is not None:
+            return cache_entry.username, []
+        snapshots = self.create_user_snapshots(display_name, submission_id, contributor, scan_date)
+        if not snapshots:
+            return None, []
+
+        cache_entry = CacheEntry(
+            snapshots[0].site_user_id,
+        )
+        for snapshot in snapshots:
+            self.cache[snapshot.display_name] = cache_entry
+        self.save_cache()
+        return cache_entry.username, snapshots
 
 
 class WeasylLookup(UserLookup):

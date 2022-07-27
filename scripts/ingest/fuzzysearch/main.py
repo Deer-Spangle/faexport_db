@@ -85,8 +85,14 @@ class FuzzysearchIngestionJob(IngestionJob):
             scan_date = dateutil.parser.parse(updated_at)
 
         uploader_username = None
+        user_snapshots = []
         if site_config.ingest_artist and site_config.user_lookup is not None:
-            uploader_username = site_config.user_lookup.get_username(artists, submission_id, CONTRIBUTOR, scan_date)
+            uploader_username, user_snapshots = site_config.user_lookup.lookup_user(
+                artists,
+                submission_id,
+                CONTRIBUTOR,
+                scan_date
+            )
 
         posted_date = None
         if posted_at:
@@ -120,7 +126,7 @@ class FuzzysearchIngestionJob(IngestionJob):
                 )
             ]
         )
-        return FormatResponse([update])
+        return FormatResponse([update], user_snapshots)
 
     def validate_row(self, row: RowType) -> None:
         site, submission_id, artists, hash_value, posted_at, updated_at, sha256, deleted, content_url = row.values()
