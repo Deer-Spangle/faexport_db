@@ -21,7 +21,6 @@ def csv_count_rows(file_path: Union[str, pathlib.Path]) -> int:
         return sum(1 for _ in tqdm.tqdm(reader, desc="Counting rows"))
 
 
-@contextmanager
 def cache_in_file(file_path: Union[str, pathlib.Path], generator: Callable[[], str]) -> str:
     try:
         with open(file_path, "r") as cache_file:
