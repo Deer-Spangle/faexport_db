@@ -34,7 +34,7 @@ def cache_in_file(file_path: Union[str, pathlib.Path], generator: Callable[[], s
 
 
 class IngestionJob(ABC):
-    SAVE_AFTER = 100
+    SAVE_AFTER = 1000
 
     def __init__(self, *, skip_rows: int = 0) -> None:
         self.skip_rows = skip_rows
