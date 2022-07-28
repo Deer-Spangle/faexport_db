@@ -3,11 +3,13 @@ import datetime
 import json
 import csv
 import sys
+from collections import Counter
 from pathlib import Path
 from typing import Optional, List, Iterator
 
 import dateutil.parser
 import psycopg2
+import tqdm
 
 from faexport_db.ingest_formats.base import FormatResponse
 from faexport_db.models.archive_contributor import ArchiveContributor
@@ -126,6 +128,60 @@ class E621IngestJob(IngestionJob):
             next(reader, None)  # skip headers
             for row in reader:
                 yield row
+
+    def investigate_data(self) -> None:
+        twitter_usernames = []
+        source_protocols = []
+        source_domains = []
+        raw_domains = []
+        probably_wrong = set()
+        for row in tqdm.tqdm(self.iterate_rows(), total=self.row_count()):
+            post_id, uploader_id, created_at, md5, source, rating, image_width, image_height, tag_string, locked_tags, fav_count, file_ext, parent_id, change_seq, approver_id, file_size, comment_count, description, duration, updated_at, is_deleted, is_pending, is_flagged, score, up_score, down_score, is_rating_locked, is_status_locked, is_note_locked = row
+            if not source.strip():
+                continue
+            sources = [s.strip() for s in source.split("\n")]
+            for source_link in sources:
+                if ", " in source_link:
+                    probably_wrong.add(post_id)
+                if "://" in source_link:
+                    protocol, source_link = source_link.split("://", 1)
+                    source_protocols.append(protocol)
+                if source_link.startswith("www."):
+                    source_link = source_link[4:]
+                if "/" not in source_link:
+                    raw_domains.append(source_link)
+                else:
+                    domain, source_path = source_link.split("/", 1)
+                    source_domains.append(domain)
+                    if domain == "twitter.com":
+                        twitter_username = source_path
+                        if "/" in source_path:
+                            twitter_username, _ = source_path.split("/", 1)
+                        twitter_usernames.append(twitter_username)
+        print(f"{len(probably_wrong)} posts have sources containing \", \" and are probably formatted wrong.")
+        print(f"Source protocols: {Counter(source_protocols)}")
+        print(f"There are {len(raw_domains)} sources which are just a raw domain")
+        domain_counter = Counter(source_domains)
+        print(f"There are {len(domain_counter)} unique domains mentioned")
+        print(
+            "Top five source domains: "
+            + ", ".join(f"{domain}: {count}" for domain, count in domain_counter.most_common(5))
+        )
+        twitter_counter = Counter(twitter_usernames)
+        print(f"There are {len(twitter_counter)} unique twitter usernames mentioned")
+        print(
+            "Top five twitter accounts: "
+            + ", ".join(f"{acc}: {count}" for acc, count in twitter_counter.most_common(5))
+        )
+        with open("e621_dump_report.json", "w") as f:
+            data = {
+                "probably_wrong": list(probably_wrong),
+                "source_protocols": {key: val for key, val in Counter(source_protocols).items()},
+                "raw_domains": {key: val for key, val in Counter(raw_domains).items()},
+                "source_domains": {key: val for key, val in domain_counter.items()},
+                "twitter_usernames": {key: val for key, val in twitter_counter.items()}
+            }
+            json.dump(data, f)
 
 
 if __name__ == "__main__":
