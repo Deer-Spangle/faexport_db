@@ -178,12 +178,12 @@ class E621IngestJob(IngestionJob):
         with open("e621_dump_report.json", "w") as f:
             data = {
                 "probably_wrong": list(probably_wrong),
-                "source_protocols": {key: val for key, val in Counter(source_protocols).items()},
-                "raw_domains": {key: val for key, val in Counter(raw_domains).items()},
-                "source_domains": {key: val for key, val in domain_counter.items()},
-                "twitter_usernames": {key: val for key, val in twitter_counter.items()}
+                "source_protocols": {key: val for key, val in Counter(source_protocols).most_common()},
+                "raw_domains": {key: val for key, val in Counter(raw_domains).most_common()},
+                "source_domains": {key: val for key, val in domain_counter.most_common()},
+                "twitter_usernames": {key: val for key, val in twitter_counter.most_common()}
             }
-            json.dump(data, f)
+            json.dump(data, f, indent=2)
 
 
 if __name__ == "__main__":
