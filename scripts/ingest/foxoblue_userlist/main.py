@@ -36,8 +36,8 @@ class FoxoBlueUserListIngestionJob(IngestionJob):
         with open(self.csv_location, "r", encoding="utf-8") as file:
             reader = csv.reader(file)
             for line in tqdm.tqdm(reader, desc="Finding earliest date", total=self.row_count()):
-                if line[5]:
-                    earliest = min(earliest, line[5])
+                if line[1]:
+                    earliest = min(earliest, line[1])
         return dateutil.parser.parse(earliest)
 
     def row_count(self) -> Optional[int]:
