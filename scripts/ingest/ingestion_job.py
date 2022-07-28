@@ -1,5 +1,6 @@
 import argparse
 import csv
+import datetime
 import pathlib
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
@@ -33,11 +34,17 @@ def cache_in_file(file_path: Union[str, pathlib.Path], generator: Callable[[], s
     return result
 
 
+def _current_time() -> datetime.datetime:
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
 class IngestionJob(ABC):
     SAVE_AFTER = 1000
+    SAVE_AFTER_SECONDS = 60
 
     def __init__(self, *, skip_rows: int = 0) -> None:
         self.skip_rows = skip_rows
+        self.last_save = _current_time()
 
     def argument_parser(self) -> argparse.ArgumentParser:
         parser = argparse.ArgumentParser(
@@ -83,7 +90,11 @@ class IngestionJob(ABC):
             for snapshot in result.user_snapshots:
                 users_by_row.append((row_num, snapshot))
             # Check whether to save snapshots
-            if len(submissions_by_row) >= self.SAVE_AFTER or len(users_by_row) >= self.SAVE_AFTER:
+            if (
+                    len(submissions_by_row) >= self.SAVE_AFTER
+                    or len(users_by_row) >= self.SAVE_AFTER
+                    or _current_time() > (self.last_save + datetime.timedelta(seconds=self.SAVE_AFTER_SECONDS))
+            ):
                 progress.set_description(
                     f"Saving snapshots for {len(submissions_by_row)} submissions and {len(users_by_row)} users"
                 )
@@ -91,6 +102,7 @@ class IngestionJob(ABC):
                 submissions_by_row.clear()
                 UserSnapshot.save_batch(db, [snapshot for _, snapshot in users_by_row])
                 users_by_row.clear()
+                self.last_save = _current_time()
             # Update description
             row_nums = [num for num, _ in submissions_by_row] + [num for num, _ in users_by_row]
             lowest_row_num = row_num
