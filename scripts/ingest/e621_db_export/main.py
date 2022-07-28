@@ -155,8 +155,10 @@ class E621IngestJob(IngestionJob):
                     source_domains.append(domain)
                     if domain == "twitter.com":
                         twitter_username = source_path
-                        if "/" in source_path:
-                            twitter_username, _ = source_path.split("/", 1)
+                        if "/" in twitter_username:
+                            twitter_username, _ = twitter_username.split("/", 1)
+                        if "?" in twitter_username:
+                            twitter_username, _ = twitter_username.split("?", 1)
                         twitter_usernames.append(twitter_username)
         print(f"{len(probably_wrong)} posts have sources containing \", \" and are probably formatted wrong.")
         print(f"Source protocols: {Counter(source_protocols)}")
