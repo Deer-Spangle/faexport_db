@@ -165,10 +165,8 @@ def ingest_data(formatter: BaseFormat):
     if not web_data:
         return error_resp(400, "Submission snapshot data must be posted as json")
     format_resp = formatter.format_web_data(web_data, contributor)
-    for snapshot in format_resp.submission_snapshots:
-        snapshot.save(db)
-    for snapshot in format_resp.user_snapshots:
-        snapshot.save(db)
+    Submission.save_batch(format_resp.submission_snapshots)
+    User.save_batch(format_resp.user_snapshots)
 
 
 @app.route("/api/websites.json")
