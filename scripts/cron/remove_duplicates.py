@@ -9,10 +9,14 @@ from faexport_db.db import Database, chunks
 DRY_RUN = False
 
 
-def remove_file_hash(db: Database, hash_id: int) -> None:
+def remove_file_hashes(db: Database, hash_ids: List[int]) -> None:
     if DRY_RUN:
         return
-    db.update("DELETE FROM submission_snapshot_file_hashes WHERE hash_id = %s", (hash_id,))
+    chunk_size = 1000
+    chunk_count = (len(hash_ids) // chunk_size) + 1
+    for hash_ids_chunk in tqdm.tqdm(chunks(hash_ids, chunk_size), "Removing hashes", total=chunk_count):
+        print(f"Removing {len(hash_ids_chunk)} hashes")
+        db.update("DELETE FROM submission_snapshot_file_hashes WHERE hash_id IN %s", (tuple(hash_ids_chunk),))
 
 
 def remove_file_hashes_by_file(db: Database, file_ids: List[int]) -> None:
@@ -36,29 +40,34 @@ def scan_file_hashes(db: Database) -> int:
     hash_rows = db.select_iter(
         "SELECT hash_id, file_id, algo_id FROM submission_snapshot_file_hashes", tuple()
     )
-    index = set()
+    index = {}
     remove_ids = []
     for hash_row in tqdm.tqdm(hash_rows, "Scanning file hashes"):
         hash_id, file_id, algo_id = hash_row
-        index_entry = (file_id, algo_id)
         if file_id not in valid_file_ids:
             print(f"Found orphaned file hash, ID: {hash_id}")
             remove_ids.append(hash_id)
-        elif index_entry in index:
-            print(f"Removing duplicate file hash, ID: {hash_id}")
-            remove_ids.append(hash_id)
+        elif file_id not in index:
+            index[file_id] = {algo_id}
         else:
-            index.add(index_entry)
-    for remove_id in tqdm.tqdm(remove_ids, "Removing file hashes"):
-        remove_file_hash(db, remove_id)
+            if algo_id not in index[file_id]:
+                index[file_id].add(algo_id)
+            else:
+                print(f"Removing duplicate file hash, ID: {hash_id}")
+                remove_ids.append(hash_id)
+    remove_file_hashes(db, remove_ids)
     return len(remove_ids)
 
 
-def remove_file(db: Database, file_id: int) -> None:
+def remove_files(db: Database, file_ids: List[int]) -> None:
     if DRY_RUN:
         return
-    db.update("DELETE FROM submission_snapshot_file_hashes WHERE file_id = %s", (file_id,))
-    db.update("DELETE FROM submission_snapshot_files WHERE file_id = %s", (file_id,))
+    chunk_size = 1000
+    chunk_count = (len(file_ids) // chunk_size) + 1
+    for file_ids_chunk in tqdm.tqdm(chunks(file_ids, chunk_size), "Removing files", total=chunk_count):
+        print(f"Removing {len(file_ids_chunk)} files")
+        db.update("DELETE FROM submission_snapshot_file_hashes WHERE file_id IN %s", (tuple(file_ids_chunk),))
+        db.update("DELETE FROM submission_snapshot_files WHERE file_id IN %s", (tuple(file_ids_chunk),))
 
 
 def scan_files(db: Database) -> int:
@@ -72,21 +81,22 @@ def scan_files(db: Database) -> int:
     file_rows = db.select_iter(
         "SELECT file_id, submission_snapshot_id, site_file_id FROM submission_snapshot_files", tuple()
     )
-    index = set()
+    index = {}
     remove_ids = []
     for file_row in tqdm.tqdm(file_rows, "Scanning files"):
         file_id, sub_id, site_file_id = file_row
-        index_entry = (sub_id, site_file_id)
         if sub_id not in valid_sub_ids:
             print(f"Removing orphaned file, ID: {file_id}")
             remove_ids.append(file_id)
-        elif index_entry in index:
-            print(f"Removing duplicate file, ID: {file_id}")
-            remove_ids.append(file_id)
+        elif sub_id not in index:
+            index[sub_id] = {site_file_id}
         else:
-            index.add(index_entry)
-    for file_id in tqdm.tqdm(remove_ids, "Removing files"):
-        remove_file(db, file_id)
+            if site_file_id not in index[sub_id]:
+                index[sub_id].add(site_file_id)
+            else:
+                print(f"Removing duplicate file, ID: {file_id}")
+                remove_ids.append(file_id)
+    remove_files(db, remove_ids)
     return len(remove_ids)
 
 
@@ -149,6 +159,7 @@ def remove_submissions(db: Database, submission_ids: List[int]) -> None:
         return
     chunk_size = 1000
     chunk_count = (len(submission_ids) // chunk_size) + 1
+    file_ids = []
     for submission_ids_chunk in tqdm.tqdm(
             chunks(submission_ids, chunk_size),
             "Removing submissions",
@@ -160,8 +171,7 @@ def remove_submissions(db: Database, submission_ids: List[int]) -> None:
             "SELECT file_id FROM submission_snapshot_files WHERE submission_snapshot_id IN %s",
             (tuple(submission_ids_chunk),)
         )
-        file_ids = [file_row[0] for file_row in file_rows]
-        remove_file_hashes_by_file(db, file_ids)
+        file_ids.extend([file_row[0] for file_row in file_rows])
         db.update(
             "DELETE FROM submission_snapshot_files WHERE submission_snapshot_id IN %s",
             (tuple(submission_ids_chunk),)
@@ -174,6 +184,7 @@ def remove_submissions(db: Database, submission_ids: List[int]) -> None:
             "DELETE FROM submission_snapshots WHERE submission_snapshot_id IN %s",
             (tuple(submission_ids_chunk),)
         )
+    remove_file_hashes_by_file(db, file_ids)
 
 
 def scan_submissions(db: Database) -> int:
@@ -182,23 +193,23 @@ def scan_submissions(db: Database) -> int:
         "SELECT submission_snapshot_id, website_id, site_submission_id, scan_datetime, archive_contributor_id "
         "FROM submission_snapshots", tuple()
     )
-    index = set()
+    index = {}
     remove_ids = []
     for sub_row in tqdm.tqdm(sub_rows, "Scanning submissions"):
-        index_entry = tuple(sub_row[1:])
-        if index_entry in index:
-            print(f"Removing duplicate submission, ID: {sub_row[0]}")
-            remove_ids.append(sub_row[0])
-        else:
-            index.add(index_entry)
+        snapshot_id, website_id, site_submission_id, scan_datetime, contributor_id = sub_row
+        if website_id not in index:
+            index[website_id] = {contributor_id: {site_submission_id: {scan_datetime}}}
+            continue
+        if contributor_id not in index[website_id]:
+            index[website_id][contributor_id] = {site_submission_id: {scan_datetime}}
+            continue
+        if site_submission_id not in index[website_id][contributor_id]:
+            index[website_id][contributor_id][site_submission_id] = {scan_datetime}
+        if scan_datetime in index[website_id][contributor_id][site_submission_id]:
+            print(f"Planning to remove duplicate submission snapshot: {snapshot_id}")
+            remove_ids.append(snapshot_id)
     remove_submissions(db, remove_ids)
     return len(remove_ids)
-
-
-def remove_user(db: Database, user_id: int) -> None:
-    if DRY_RUN:
-        return
-    db.update("DELETE FROM user_snapshots WHERE user_snapshot_id = %s", (user_id,))
 
 
 def remove_users(db: Database, user_ids: List[int]) -> None:
@@ -220,15 +231,24 @@ def scan_users(db: Database) -> int:
         "SELECT user_snapshot_id, website_id, site_user_id, scan_datetime, archive_contributor_id FROM user_snapshots",
         tuple()
     )
-    index = set()
+    index = {}
     remove_ids = []
     for user_row in tqdm.tqdm(user_rows, "Scanning users"):
-        index_entry = tuple(user_row[1:])
-        if index_entry in index:
-            print(f"Found duplicate user, ID: {user_row[0]}")
-            remove_ids.append(user_row[0])
-        else:
-            index.add(index_entry)
+        snapshot_id, website_id, site_user_id, scan_datetime, contributor_id = user_row
+        if website_id not in index:
+            index[website_id] = {contributor_id: {site_user_id: {scan_datetime}}}
+            continue
+        if contributor_id not in index[website_id]:
+            index[website_id][contributor_id] = {site_user_id: {scan_datetime}}
+            continue
+        if site_user_id not in index[website_id][contributor_id]:
+            index[website_id][contributor_id][site_user_id] = {scan_datetime}
+            continue
+        if scan_datetime not in index[website_id][contributor_id][site_user_id]:
+            index[website_id][contributor_id][site_user_id].add(scan_datetime)
+            continue
+        print(f"Found duplicate user snapshot, ID: {snapshot_id}")
+        remove_ids.append(snapshot_id)
     remove_users(db, remove_ids)
     return len(remove_ids)
 
@@ -240,10 +260,10 @@ if __name__ == "__main__":
     db_dsn = config["db_conn"]
     db_conn = psycopg2.connect(db_dsn)
     db_obj = Database(db_conn)
-    removed_users = 0# scan_users(db_obj)
-    removed_hashes = 0#scan_file_hashes(db_obj)
-    removed_files = 0#can_files(db_obj)
-    removed_keywords = 0#scan_keywords(db_obj)
+    removed_users = scan_users(db_obj)
+    removed_hashes = scan_file_hashes(db_obj)
+    removed_files = scan_files(db_obj)
+    removed_keywords = scan_keywords(db_obj)
     removed_submissions = scan_submissions(db_obj)
     print(f"Removed users: {removed_users}")
     print(f"Removed hashes: {removed_hashes}")
