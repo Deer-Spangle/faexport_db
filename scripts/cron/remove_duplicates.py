@@ -1,4 +1,9 @@
+import datetime
 import json
+import sys
+import threading
+import time
+from contextlib import contextmanager
 from typing import List
 
 import psycopg2
@@ -7,6 +12,50 @@ import tqdm
 from faexport_db.db import Database, chunks
 
 DRY_RUN = False
+
+
+class Timer:
+    def __init__(self, msg: str):
+        self.msg = msg
+        self.start_time = None
+        self.running = False
+        self.decimals = 2
+        self.total_time_taken = None
+
+    def _format_delta(self, delta: datetime.timedelta) -> str:
+        delta_str = str(delta)
+        if "." not in delta_str:
+            delta_str += ".0"
+        result, decimals = delta_str.split(".", 1)
+        if self.decimals > 0:
+            decimals = decimals[:self.decimals].rjust(self.decimals, "0")
+            result += "." + decimals
+        return result
+
+    def start(self) -> None:
+        self.start_time = datetime.datetime.now()
+        self.running = True
+        while self.running:
+            time_taken = (datetime.datetime.now() - self.start_time)
+            sys.stderr.write("\r")
+            sys.stderr.write(f"{self.msg}: [{self._format_delta(time_taken)}]")
+            sys.stderr.flush()
+            time.sleep(0.1)
+        self.total_time_taken = datetime.datetime.now() - self.start_time
+        sys.stdout.write(f"\r{self.msg} complete! Took {self._format_delta(self.total_time_taken)}\n")
+
+    def stop(self):
+        self.running = False
+
+
+@contextmanager
+def timer(msg: str) -> None:
+    timer_obj = Timer(msg)
+    timer_thread = threading.Thread(target=timer_obj.start)
+    timer_thread.start()
+    yield
+    timer_obj.stop()
+    timer_thread.join()
 
 
 def remove_file_hashes(db: Database, hash_ids: List[int]) -> None:
@@ -40,10 +89,11 @@ def remove_orphaned_file_hashes(db: Database) -> int:
         tuple()
     )
     remove_ids = []
-    for hash_row in tqdm.tqdm(orphaned_hashes, "Scanning orphaned file hashes"):
-        hash_id = hash_row[0]
-        print(f"Removed orphaned file hash, ID: {hash_id}")
-        remove_ids.append(hash_id)
+    with timer("Scanning for orphaned file hashes"):
+        for hash_row in orphaned_hashes:
+            hash_id = hash_row[0]
+            print(f"Removed orphaned file hash, ID: {hash_id}")
+            remove_ids.append(hash_id)
     remove_file_hashes(db, remove_ids)
     return len(remove_ids)
 
@@ -59,37 +109,11 @@ def remove_duplicate_file_hashes(db: Database) -> int:
         tuple()
     )
     remove_ids = []
-    for hash_row in tqdm.tqdm(duplicate_hashes, "Scanning duplicate file hashes"):
-        hash_id = hash_row[0]
-        print(f"Removing duplicate file hash, ID: {hash_id}")
-        remove_ids.append(hash_id)
-    remove_file_hashes(db, remove_ids)
-    return len(remove_ids)
-
-
-def remove_orphaned_and_duplicate_file_hashes(db: Database) -> int:
-    print("Scanning file hashes")
-    valid_file_ids = {
-        row[0]: set() for row in tqdm.tqdm(
-            db.select_iter("SELECT file_id FROM submission_snapshot_files", tuple()),
-            "Listing file IDs"
-        )
-    }
-    hash_rows = db.select_iter(
-        "SELECT hash_id, file_id, algo_id FROM submission_snapshot_file_hashes", tuple()
-    )
-    remove_ids = []
-    for hash_row in tqdm.tqdm(hash_rows, "Scanning file hashes"):
-        hash_id, file_id, algo_id = hash_row
-        if file_id not in valid_file_ids:
-            print(f"Found orphaned file hash, ID: {hash_id}")
+    with timer("Scanning for duplicate file hashes"):
+        for hash_row in duplicate_hashes:
+            hash_id = hash_row[0]
+            print(f"Removing duplicate file hash, ID: {hash_id}")
             remove_ids.append(hash_id)
-        else:
-            if algo_id not in valid_file_ids[file_id]:
-                valid_file_ids[file_id].add(algo_id)
-            else:
-                print(f"Removing duplicate file hash, ID: {hash_id}")
-                remove_ids.append(hash_id)
     remove_file_hashes(db, remove_ids)
     return len(remove_ids)
 
@@ -116,10 +140,11 @@ def remove_orphaned_files(db: Database) -> int:
         tuple()
     )
     remove_ids = []
-    for file_row in tqdm.tqdm(orphaned_files, "Scanning orphaned files"):
-        file_id = file_row[0]
-        print(f"Removed orphaned file, ID: {file_id}")
-        remove_ids.append(file_id)
+    with timer("Scanning for orphaned files"):
+        for file_row in orphaned_files:
+            file_id = file_row[0]
+            print(f"Removed orphaned file, ID: {file_id}")
+            remove_ids.append(file_id)
     remove_files(db, remove_ids)
     return len(remove_ids)
 
@@ -135,10 +160,11 @@ def remove_duplicate_files(db: Database) -> int:
         tuple()
     )
     remove_ids = []
-    for file_row in tqdm.tqdm(duplicate_files, "Scanning duplicate files"):
-        file_id = file_row[0]
-        print(f"Removing duplicate file, ID: {file_id}")
-        remove_ids.append(file_id)
+    with timer("Scanning for duplicate files"):
+        for file_row in duplicate_files:
+            file_id = file_row[0]
+            print(f"Removing duplicate file, ID: {file_id}")
+            remove_ids.append(file_id)
     remove_files(db, remove_ids)
     return len(remove_ids)
 
@@ -167,10 +193,11 @@ def remove_orphaned_keywords(db: Database) -> int:
         tuple()
     )
     remove_ids = []
-    for keyword_row in tqdm.tqdm(orphaned_keywords, "Scanning orphaned keywords"):
-        keyword_id = keyword_row[0]
-        print(f"Removed orphaned keyword, ID: {keyword_id}")
-        remove_ids.append(keyword_id)
+    with timer("Scanning for orphaned keywords"):
+        for keyword_row in orphaned_keywords:
+            keyword_id = keyword_row[0]
+            print(f"Removed orphaned keyword, ID: {keyword_id}")
+            remove_ids.append(keyword_id)
     remove_keywords(db, remove_ids)
     return len(remove_ids)
 
@@ -220,10 +247,11 @@ def remove_duplicate_submission_snapshots(db: Database) -> int:
         tuple()
     )
     remove_ids = []
-    for submission_row in tqdm.tqdm(duplicate_rows, "Scanning duplicate submissions"):
-        snapshot_id = submission_row[0]
-        print(f"Removing duplicate submission snapshot, ID: {snapshot_id}")
-        remove_ids.append(snapshot_id)
+    with timer("Scanning for duplicate submissions"):
+        for submission_row in duplicate_rows:
+            snapshot_id = submission_row[0]
+            print(f"Removing duplicate submission snapshot, ID: {snapshot_id}")
+            remove_ids.append(snapshot_id)
     remove_submissions(db, remove_ids)
     return len(remove_ids)
 
@@ -252,10 +280,11 @@ def remove_duplicate_user_snapshots(db: Database) -> int:
         tuple()
     )
     remove_ids = []
-    for user_row in tqdm.tqdm(duplicate_users, "Scanning duplicate files"):
-        snapshot_id = user_row[0]
-        print(f"Removing duplicate user snapshot, ID: {snapshot_id}")
-        remove_ids.append(snapshot_id)
+    with timer("Scanning for duplicate users"):
+        for user_row in duplicate_users:
+            snapshot_id = user_row[0]
+            print(f"Removing duplicate user snapshot, ID: {snapshot_id}")
+            remove_ids.append(snapshot_id)
     remove_users(db, remove_ids)
     return len(remove_ids)
 
