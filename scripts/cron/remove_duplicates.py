@@ -32,7 +32,7 @@ def remove_file_hashes_by_file(db: Database, file_ids: List[int]) -> None:
 def remove_orphaned_and_duplicate_file_hashes(db: Database) -> int:
     print("Scanning file hashes")
     valid_file_ids = {
-        row[0] for row in tqdm.tqdm(
+        row[0]: set() for row in tqdm.tqdm(
             db.select_iter("SELECT file_id FROM submission_snapshot_files", tuple()),
             "Listing file IDs"
         )
@@ -40,18 +40,15 @@ def remove_orphaned_and_duplicate_file_hashes(db: Database) -> int:
     hash_rows = db.select_iter(
         "SELECT hash_id, file_id, algo_id FROM submission_snapshot_file_hashes", tuple()
     )
-    index = {}
     remove_ids = []
     for hash_row in tqdm.tqdm(hash_rows, "Scanning file hashes"):
         hash_id, file_id, algo_id = hash_row
         if file_id not in valid_file_ids:
             print(f"Found orphaned file hash, ID: {hash_id}")
             remove_ids.append(hash_id)
-        elif file_id not in index:
-            index[file_id] = {algo_id}
         else:
-            if algo_id not in index[file_id]:
-                index[file_id].add(algo_id)
+            if algo_id not in valid_file_ids[file_id]:
+                valid_file_ids[file_id].add(algo_id)
             else:
                 print(f"Removing duplicate file hash, ID: {hash_id}")
                 remove_ids.append(hash_id)
