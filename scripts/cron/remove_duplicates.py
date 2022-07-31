@@ -29,7 +29,7 @@ def remove_file_hashes_by_file(db: Database, file_ids: List[int]) -> None:
         db.update("DELETE FROM submission_snapshot_file_hashes WHERE file_id IN %s", (tuple(file_ids_chunk),))
 
 
-def scan_file_hashes(db: Database) -> int:
+def remove_orphaned_and_duplicate_file_hashes(db: Database) -> int:
     print("Scanning file hashes")
     valid_file_ids = {
         row[0] for row in tqdm.tqdm(
@@ -70,10 +70,10 @@ def remove_files(db: Database, file_ids: List[int]) -> None:
         db.update("DELETE FROM submission_snapshot_files WHERE file_id IN %s", (tuple(file_ids_chunk),))
 
 
-def scan_files(db: Database) -> int:
+def remove_orphaned_and_duplicate_files(db: Database) -> int:
     print("Scanning files")
     valid_sub_ids = {
-        row[0] for row in tqdm.tqdm(
+        row[0]: set() for row in tqdm.tqdm(
             db.select_iter("SELECT submission_snapshot_id FROM submission_snapshots", tuple()),
             "Listing submission IDs"
         )
@@ -81,18 +81,15 @@ def scan_files(db: Database) -> int:
     file_rows = db.select_iter(
         "SELECT file_id, submission_snapshot_id, site_file_id FROM submission_snapshot_files", tuple()
     )
-    index = {}
     remove_ids = []
     for file_row in tqdm.tqdm(file_rows, "Scanning files"):
         file_id, sub_id, site_file_id = file_row
         if sub_id not in valid_sub_ids:
             print(f"Removing orphaned file, ID: {file_id}")
             remove_ids.append(file_id)
-        elif sub_id not in index:
-            index[sub_id] = {site_file_id}
         else:
-            if site_file_id not in index[sub_id]:
-                index[sub_id].add(site_file_id)
+            if site_file_id not in valid_sub_ids[sub_id]:
+                valid_sub_ids[sub_id].add(site_file_id)
             else:
                 print(f"Removing duplicate file, ID: {file_id}")
                 remove_ids.append(file_id)
@@ -119,7 +116,7 @@ def remove_keywords(db: Database, keyword_ids: List[int]) -> None:
         )
 
 
-def scan_keywords(db: Database) -> int:
+def remove_orphaned_keywords(db: Database) -> int:
     print("Scanning keywords")
     valid_sub_ids = {
         row[0] for row in tqdm.tqdm(
@@ -187,7 +184,7 @@ def remove_submissions(db: Database, submission_ids: List[int]) -> None:
     remove_file_hashes_by_file(db, file_ids)
 
 
-def scan_submissions(db: Database) -> int:
+def remove_duplicate_submission_snapshots(db: Database) -> int:
     print("Scanning submissions")
     sub_rows = db.select_iter(
         "SELECT submission_snapshot_id, website_id, site_submission_id, scan_datetime, archive_contributor_id "
@@ -225,7 +222,7 @@ def remove_users(db: Database, user_ids: List[int]) -> None:
         )
 
 
-def scan_users(db: Database) -> int:
+def remove_duplicate_user_snapshots(db: Database) -> int:
     print("Scanning users")
     user_rows = db.select_iter(
         "SELECT user_snapshot_id, website_id, site_user_id, scan_datetime, archive_contributor_id FROM user_snapshots",
@@ -260,11 +257,11 @@ if __name__ == "__main__":
     db_dsn = config["db_conn"]
     db_conn = psycopg2.connect(db_dsn)
     db_obj = Database(db_conn)
-    removed_users = scan_users(db_obj)
-    removed_hashes = scan_file_hashes(db_obj)
-    removed_files = scan_files(db_obj)
-    removed_keywords = scan_keywords(db_obj)
-    removed_submissions = scan_submissions(db_obj)
+    removed_users = remove_duplicate_user_snapshots(db_obj)
+    removed_hashes = remove_orphaned_and_duplicate_file_hashes(db_obj)
+    removed_files = remove_orphaned_and_duplicate_files(db_obj)
+    removed_keywords = remove_orphaned_keywords(db_obj)
+    removed_submissions = remove_duplicate_submission_snapshots(db_obj)
     print(f"Removed users: {removed_users}")
     print(f"Removed hashes: {removed_hashes}")
     print(f"Removed keywords: {removed_keywords}")
