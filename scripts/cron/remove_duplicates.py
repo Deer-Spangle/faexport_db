@@ -228,7 +228,7 @@ def delete_submissions(db: Database, submission_ids: List[int]) -> None:
             "Removing submissions",
             total=chunk_count
     ):
-        print(f"Removing {len(submission_ids_chunk)} keywords")
+        print(f"Removing {len(submission_ids_chunk)} submission snapshots")
 
         file_rows = db.select_iter(
             "SELECT file_id FROM submission_snapshot_files WHERE submission_snapshot_id IN %s",
