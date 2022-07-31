@@ -115,21 +115,19 @@ def remove_keywords(db: Database, keyword_ids: List[int]) -> None:
 
 def remove_orphaned_keywords(db: Database) -> int:
     print("Scanning keywords")
-    valid_sub_ids = {
-        row[0] for row in tqdm.tqdm(
-            db.select_iter("SELECT submission_snapshot_id FROM submission_snapshots", tuple()),
-            "Listing submission IDs"
-        )
-    }
-    keyword_rows = db.select_iter(
-        "SELECT keyword_id, submission_snapshot_id FROM submission_snapshot_keywords", tuple()
+    orphaned_keywords = db.select_iter(
+        "SELECT keywords.keyword_id "
+        "FROM submission_snapshot_keywords keywords "
+        "LEFT JOIN submission_snapshots submissions "
+        "ON keywords.submission_snapshot_id = submissions.submission_snapshot_id "
+        "WHERE submissions.submission_snapshot_id IS NULL",
+        tuple()
     )
     remove_ids = []
-    for keyword_row in tqdm.tqdm(keyword_rows, "Scanning keywords"):
-        keyword_id, sub_id = keyword_row
-        if sub_id not in valid_sub_ids:
-            print(f"Removing orphaned keyword, ID: {keyword_id}")
-            remove_ids.append(keyword_id)
+    for keyword_row in tqdm.tqdm(orphaned_keywords, "Scanning orphaned keywords"):
+        keyword_id = keyword_row[0]
+        print(f"Removed orphaned keyword, ID: {keyword_id}")
+        remove_ids.append(keyword_id)
     remove_keywords(db, remove_ids)
     return len(remove_ids)
 
