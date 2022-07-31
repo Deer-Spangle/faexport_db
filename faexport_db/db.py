@@ -61,7 +61,7 @@ class Database:
         return result
 
     def select_iter(self, query: str, args: Tuple) -> Iterable[Any]:
-        with self.conn.cursor() as cur:
+        with self.conn.cursor("select_iter") as cur:
             cur.execute(query, args)
             while True:
                 rows = cur.fetchmany(5000)
