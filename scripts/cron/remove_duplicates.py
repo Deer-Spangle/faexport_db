@@ -58,8 +58,11 @@ def timer(msg: str) -> None:
     timer_thread.join()
 
 
-def remove_file_hashes(db: Database, hash_ids: List[int]) -> None:
+def delete_file_hashes(db: Database, hash_ids: List[int]) -> None:
     if DRY_RUN:
+        return
+    if not hash_ids:
+        print("No file hashes to remove")
         return
     chunk_size = 1000
     chunk_count = (len(hash_ids) // chunk_size) + 1
@@ -68,8 +71,11 @@ def remove_file_hashes(db: Database, hash_ids: List[int]) -> None:
         db.update("DELETE FROM submission_snapshot_file_hashes WHERE hash_id IN %s", (tuple(hash_ids_chunk),))
 
 
-def remove_file_hashes_by_file(db: Database, file_ids: List[int]) -> None:
+def delete_file_hashes_by_file(db: Database, file_ids: List[int]) -> None:
     if DRY_RUN:
+        return
+    if not file_ids:
+        print("No file hashes to remove")
         return
     chunk_size = 1000
     chunk_count = (len(file_ids) // chunk_size) + 1
@@ -94,7 +100,7 @@ def remove_orphaned_file_hashes(db: Database) -> int:
             hash_id = hash_row[0]
             print(f"Removed orphaned file hash, ID: {hash_id}")
             remove_ids.append(hash_id)
-    remove_file_hashes(db, remove_ids)
+    delete_file_hashes(db, remove_ids)
     return len(remove_ids)
 
 
@@ -114,12 +120,15 @@ def remove_duplicate_file_hashes(db: Database) -> int:
             hash_id = hash_row[0]
             print(f"Removing duplicate file hash, ID: {hash_id}")
             remove_ids.append(hash_id)
-    remove_file_hashes(db, remove_ids)
+    delete_file_hashes(db, remove_ids)
     return len(remove_ids)
 
 
-def remove_files(db: Database, file_ids: List[int]) -> None:
+def delete_files(db: Database, file_ids: List[int]) -> None:
     if DRY_RUN:
+        return
+    if not file_ids:
+        print("No files to remove")
         return
     chunk_size = 1000
     chunk_count = (len(file_ids) // chunk_size) + 1
@@ -145,7 +154,7 @@ def remove_orphaned_files(db: Database) -> int:
             file_id = file_row[0]
             print(f"Removed orphaned file, ID: {file_id}")
             remove_ids.append(file_id)
-    remove_files(db, remove_ids)
+    delete_files(db, remove_ids)
     return len(remove_ids)
 
 
@@ -165,12 +174,15 @@ def remove_duplicate_files(db: Database) -> int:
             file_id = file_row[0]
             print(f"Removing duplicate file, ID: {file_id}")
             remove_ids.append(file_id)
-    remove_files(db, remove_ids)
+    delete_files(db, remove_ids)
     return len(remove_ids)
 
 
-def remove_keywords(db: Database, keyword_ids: List[int]) -> None:
+def delete_keywords(db: Database, keyword_ids: List[int]) -> None:
     if DRY_RUN:
+        return
+    if not keyword_ids:
+        print("No keywords to remove")
         return
     chunk_size = 1000
     chunk_count = (len(keyword_ids) // chunk_size) + 1
@@ -198,12 +210,15 @@ def remove_orphaned_keywords(db: Database) -> int:
             keyword_id = keyword_row[0]
             print(f"Removed orphaned keyword, ID: {keyword_id}")
             remove_ids.append(keyword_id)
-    remove_keywords(db, remove_ids)
+    delete_keywords(db, remove_ids)
     return len(remove_ids)
 
 
-def remove_submissions(db: Database, submission_ids: List[int]) -> None:
+def delete_submissions(db: Database, submission_ids: List[int]) -> None:
     if DRY_RUN:
+        return
+    if not submission_ids:
+        print("No submission snapshots to remove")
         return
     chunk_size = 1000
     chunk_count = (len(submission_ids) // chunk_size) + 1
@@ -232,7 +247,7 @@ def remove_submissions(db: Database, submission_ids: List[int]) -> None:
             "DELETE FROM submission_snapshots WHERE submission_snapshot_id IN %s",
             (tuple(submission_ids_chunk),)
         )
-    remove_file_hashes_by_file(db, file_ids)
+    delete_file_hashes_by_file(db, file_ids)
 
 
 def remove_duplicate_submission_snapshots(db: Database) -> int:
@@ -252,12 +267,15 @@ def remove_duplicate_submission_snapshots(db: Database) -> int:
             snapshot_id = submission_row[0]
             print(f"Removing duplicate submission snapshot, ID: {snapshot_id}")
             remove_ids.append(snapshot_id)
-    remove_submissions(db, remove_ids)
+    delete_submissions(db, remove_ids)
     return len(remove_ids)
 
 
-def remove_users(db: Database, user_ids: List[int]) -> None:
+def delete_users(db: Database, user_ids: List[int]) -> None:
     if DRY_RUN:
+        return
+    if not user_ids:
+        print("No user snapshots to remove")
         return
     chunk_size = 1000
     chunk_count = (len(user_ids) // chunk_size) + 1
@@ -285,7 +303,7 @@ def remove_duplicate_user_snapshots(db: Database) -> int:
             snapshot_id = user_row[0]
             print(f"Removing duplicate user snapshot, ID: {snapshot_id}")
             remove_ids.append(snapshot_id)
-    remove_users(db, remove_ids)
+    delete_users(db, remove_ids)
     return len(remove_ids)
 
 
