@@ -45,19 +45,33 @@ I'm writing out this Readme because I got a bit lost on what this project is mea
 - Database schema setup and migrations
 
 ### Possible endpoints
-- GET /api/view/submissions/fa/3748252
+- GET /api/view/submissions/fa/3748252.json
   - View that submission
-- POST /api/ingest/faexport/submission
-  - Post a submission to ingest it into the database
-- POST /api/ingest/faexport/user 
-  - Post a user to ingest it into the database
-- GET /api/view/users/fa/dr-spangle 
+- GET /api/view/submissions/fa/3748252/snapshots.json
+  - View the snapshots that make up that submission
+- POST /api/ingest/submission [TODO]
+  - Post a submission snapshot to ingest it into the database
+- POST /api/ingest/submission?format=faexport [TODO]
+  - Post submission data in a predefined format, to ingest it as a submission snapshot
+- POST /api/ingest/user [TODO]
+  - Post a user snapshot to ingest it into the database
+- POST /api/ingest/user?format=faexport [TODO]
+  - Post user data in a predefined format, to ingest it as a user snapshot
+- GET /api/view/users/fa/dr-spangle.json
   - View a user data
-- GET /api/view/users/fa/
+- GET /api/view/users/fa/dr-spangle/snapshots.json
+  - View the snapshots that make up that user
+- GET /api/view/users/fa.json
   - List all user IDs for site?
-- POST /api/hash_search/(algo) 
+- POST /api/hash_search/<algo_id> [TODO]
   - Post hash, get a list of matching submissions?
-- GET /api/websites/
+- POST /api/hash_search/<algo_lang>/<algo_name> [TODO]
+  - Post hash, get a list of matching submissions?
+- POST /api/search/ [TODO]
+  - Post keywords, and it does a simple submission search for the term in titles, descriptions, keywords
+- GET /api/websites.json
   - List websites
-- GET /api/hash_algos/
+- GET /api/hash_algos.json
   - List hash algorithms
+- GET /api/archive_contributors.json
+  - List archive contributors

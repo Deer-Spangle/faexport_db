@@ -6,55 +6,50 @@ import multiprocessing
 import multiprocessing.pool
 from multiprocessing import Queue, Process
 from queue import Empty
-from typing import Dict
+from typing import Dict, Iterator, Optional
 
 import psycopg2
 import dateutil.parser
+
+from faexport_db.ingest_formats.base import FormatResponse
+from faexport_db.models.archive_contributor import ArchiveContributor
 import tqdm
 
 from faexport_db.db import Database
-from faexport_db.models.file import FileUpdate, FileListUpdate
-from faexport_db.models.submission import SubmissionUpdate, Submission
-from faexport_db.models.user import UserUpdate
+from faexport_db.models.file import File
+from faexport_db.models.submission import SubmissionSnapshot
+from faexport_db.models.user import UserSnapshot
 from faexport_db.models.website import Website
+from scripts.ingest.ingestion_job import IngestionJob, RowType
 
 DATA_DIR = "./dump/fa-indexer/"
 SITE_ID = "fa"
+WEBSITE = Website(SITE_ID, "Fur Affinity", "https://furaffinity.net")
 DATA_DATE = datetime.datetime(2019, 12, 4, 0, 0, 0, tzinfo=datetime.timezone.utc)
+CONTRIBUTOR = ArchiveContributor("fa-indexer data ingest")
 
 DONE_SIGNAL = "DONE"
 
 
-def import_submission_data(db: Database, submission_data: Dict) -> Submission:
-    if submission_data["id"] == 641877:
-        submission_data["description"] = submission_data["description"].replace("\0", "/0")
-    sub_update = SubmissionUpdate(
-        SITE_ID,
-        str(submission_data["id"]),
-        DATA_DATE,
-        False,
-        uploader_update=UserUpdate(
-            SITE_ID, submission_data["username"]
-        ),
-        title=submission_data["title"],
-        description=submission_data["description"],
-        datetime_posted=dateutil.parser.parse(submission_data["date"]),
-        add_extra_data={"rating": submission_data["rating"]},
-        ordered_keywords=submission_data["keywords"],
-        files=FileListUpdate([FileUpdate(
-            submission_data["filename"],
-        )])
-    )
-    submission = sub_update.save(db)
-    return submission
-
-
 class Processor:
-    def __init__(self, dsn: str, queue: Queue, resp_queue: Queue, num: int):
+    def __init__(
+            self,
+            dsn: str,
+            queue: Queue,
+            resp_queue: Queue,
+            num: int,
+            site_id: str,
+            contributor: ArchiveContributor,
+            scan_date: datetime.datetime
+    ):
         self.dsn = dsn
         self.queue = queue
         self.resp_queue = resp_queue
         self.num = num
+        self.site_id = site_id
+        self.contributor = contributor
+        self.scan_date = scan_date
+        self.seen_usernames = set()
 
     def process_entries(
             self,
@@ -70,15 +65,61 @@ class Processor:
             # print(f"Importing submission: {submission_data['id']} in worker {self.num}")
             if submission_data == DONE_SIGNAL:
                 break
-            submission = import_submission_data(db, submission_data)
-            self.resp_queue.put(submission.site_submission_id)
+            snapshot = self.import_submission_data(db, submission_data)
+            self.resp_queue.put(snapshot.site_submission_id)
+
+    def import_submission_data(
+            self,
+            db: Database,
+            submission_data: Dict,
+    ) -> SubmissionSnapshot:
+        if submission_data["id"] == 641877:
+            # This submission has null characters, due to a mis-formatted date
+            submission_data["description"] = submission_data["description"].replace("\0", "/0")
+        if "\0" in submission_data["description"]:
+            # 18570215 has nul characters due to utf-16 encoding issues
+            # 24491325, and 24661614 have nul characters for no clear reason
+            # Given they seem to just be a mistake, lets just clean them out from any submission
+            submission_data["description"] = submission_data["description"].replace("\0", "")
+        uploader_username = submission_data["username"]
+        if uploader_username not in self.seen_usernames:
+            self.seen_usernames.add(uploader_username)
+            user_snapshot = UserSnapshot(
+                self.site_id,
+                uploader_username,
+                self.contributor,
+                self.scan_date
+            )
+            user_snapshot.save(db)
+        snapshot = SubmissionSnapshot(
+            self.site_id,
+            str(submission_data["id"]),
+            self.contributor,
+            self.scan_date,
+            uploader_site_user_id=uploader_username,
+            title=submission_data["title"],
+            description=submission_data["description"],
+            datetime_posted=dateutil.parser.parse(submission_data["date"]),
+            extra_data={"rating": submission_data["rating"]},
+            ordered_keywords=submission_data["keywords"],
+            files=[
+                File(
+                    None,
+                    file_url=submission_data["filename"],
+                )
+            ]
+        )
+        snapshot.save(db)
+        return snapshot
 
 
 def scan_directory(dsn: str, dir_path: str) -> None:
     num_processes = 10
     queue = multiprocessing.Queue()
     resp_queue = multiprocessing.Queue()
-    processors = [Processor(dsn, queue, resp_queue, num) for num in range(num_processes)]
+    processors = [
+        Processor(dsn, queue, resp_queue, num, SITE_ID, CONTRIBUTOR, DATA_DATE) for num in range(num_processes)
+    ]
     processes = [Process(target=processor.process_entries) for processor in processors]
     for process in processes:
         process.start()
@@ -103,9 +144,17 @@ def scan_directory(dsn: str, dir_path: str) -> None:
         process.join()
 
 
-def setup_initial_data(db: Database) -> None:
-    website = Website(SITE_ID, "Fur Affinity", "https://furaffinity.net")
-    website.save(db)
+class FAIndexerIngestionJob(IngestionJob):
+    def __init__(self):
+
+    def row_count(self) -> Optional[int]:
+        pass
+
+    def convert_row(self, row: RowType) -> FormatResponse:
+        pass
+
+    def iterate_rows(self) -> Iterator[RowType]:
+        pass
 
 
 if __name__ == "__main__":
@@ -115,5 +164,9 @@ if __name__ == "__main__":
     db_dsn = config["db_conn"]
     db_conn = psycopg2.connect(db_dsn)
     db_obj = Database(db_conn)
-    setup_initial_data(db_obj)
+    WEBSITE.save(db_obj)
+    CONTRIBUTOR.save(db_obj)
+
+    ingestion_job = FAIndexerIngestionJob(DATA_DIR)
+    ingestion_job.process(db_obj)
     scan_directory(db_dsn, DATA_DIR)

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Dict, List
 
 if TYPE_CHECKING:
     from faexport_db.db import Database
@@ -15,6 +15,33 @@ class Website:
         self.website_id = website_id
         self.full_name = full_name
         self.link = link
+
+    def count_user_snapshots(self, db: Database) -> int:
+        count_rows = db.select(
+            "SELECT COUNT(*) FROM user_snapshots WHERE website_id = %s",
+            (self.website_id,)
+        )
+        if count_rows:
+            return count_rows[0][0]
+        return 0
+
+    def count_submission_snapshots(self, db: Database) -> int:
+        count_rows = db.select(
+            "SELECT COUNT(*) FROM submission_snapshots WHERE website_id = %s",
+            (self.website_id,)
+        )
+        if count_rows:
+            return count_rows[0][0]
+        return 0
+
+    def to_web_json(self, db: Database) -> Dict:
+        return {
+            "website_id": self.website_id,
+            "full_name": self.full_name,
+            "link": self.link,
+            "num_user_snapshots": self.count_user_snapshots(db),
+            "num_submission_snapshots": self.count_submission_snapshots(db),
+        }
 
     def save(self, db: Database) -> None:
         if self.from_database(db, self.website_id):
@@ -41,3 +68,15 @@ class Website:
             full_name,
             link
         )
+    
+    @classmethod
+    def list_all(cls, db: Database) -> List["Website"]:
+        website_rows = db.select(
+            "SELECT website_id, full_name, link FROM websites",
+            tuple()
+        )
+        websites = []
+        for website_row in website_rows:
+            website_id, full_name, link = website_row
+            websites.append(Website(website_id, full_name, link))
+        return websites

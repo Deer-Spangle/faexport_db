@@ -1,315 +1,392 @@
 from __future__ import annotations
 import datetime
-from typing import Optional, Dict, Any, List, TYPE_CHECKING
-
-from psycopg2 import errors
-from psycopg2.errorcodes import UNIQUE_VIOLATION
+from typing import Optional, Dict, Any, List, Iterable
 
 from faexport_db.db import (
     merge_dicts,
     Database,
     json_to_db,
-    unset_to_null,
-    UNSET,
+    parse_datetime,
 )
-from faexport_db.models.file import FileList
-from faexport_db.models.keyword import SubmissionKeywordsListUpdate, SubmissionKeywordsList
-from faexport_db.models.user import User
-
-if TYPE_CHECKING:
-    from faexport_db.models.file import FileListUpdate
-    from faexport_db.models.user import UserUpdate
+from faexport_db.models.archive_contributor import ArchiveContributor
+from faexport_db.models.file import File
+from faexport_db.models.keyword import SubmissionKeyword
 
 
 class Submission:
     def __init__(
         self,
-        submission_id: int,
         website_id: str,
         site_submission_id: str,
-        is_deleted: bool,
-        first_scanned: datetime.datetime,
-        latest_update: datetime.datetime,
-        uploader: Optional[User],
-        title: Optional[str],
-        description: Optional[str],
-        datetime_posted: Optional[datetime.datetime],
-        extra_data: Optional[Dict[str, Any]],
-        keywords: SubmissionKeywordsList,
-        files: FileList,
+        snapshots: List["SubmissionSnapshot"],
     ):
-        self.submission_id = submission_id
         self.website_id = website_id
         self.site_submission_id = site_submission_id
-        self.is_deleted = is_deleted
-        self.first_scanned = first_scanned
-        self.latest_update = latest_update
-        self.uploader = uploader
-        self.uploader_create: UserUpdate = UNSET
-        self.title = title
-        self.description = description
-        self.datetime_posted = datetime_posted
-        self.extra_data = extra_data
-        self.keywords = keywords
-        self.keywords_update: SubmissionKeywordsListUpdate = UNSET
-        self.files = files
-        self.files_update: FileListUpdate = UNSET
-        self.updated = False
+        self.snapshots = snapshots
+    
+    @property
+    def sorted_snapshots(self) -> List[SubmissionSnapshot]:
+        return sorted(self.snapshots, key=lambda s: s.scan_datetime, reverse=True)
 
-    def add_update(self, update: "SubmissionUpdate") -> None:
-        if update.update_time > self.latest_update:
-            self.updated = True  # At the very least, update time is being updated
-            self.latest_update = update.update_time
-            if update.is_deleted is not UNSET:
-                self.is_deleted = update.is_deleted
-            if update.uploader_update is not UNSET:
-                if self.uploader is not None:
-                    self.uploader.add_update(update.uploader_update)
-                else:
-                    self.uploader_create = update.uploader_update
-            if update.title is not UNSET:
-                self.title = update.title
-            if update.description is not UNSET:
-                self.description = update.description
-            if update.datetime_posted is not UNSET:
-                self.datetime_posted = update.datetime_posted
-            if update.add_extra_data is not UNSET:
-                self.extra_data = merge_dicts(self.extra_data, update.add_extra_data)
-            if update.ordered_keywords is not UNSET:
-                self.keywords_update = SubmissionKeywordsListUpdate.from_ordered_keywords(update.ordered_keywords)
-            if update.unordered_keywords is not UNSET:
-                self.keywords_update = SubmissionKeywordsListUpdate.from_unordered_keywords(update.unordered_keywords)
-            if update.files is not UNSET:
-                self.files_update = update.files
-            return
-        # If it's an older update, we can still update some things if they're unset
-        if self.title is None and update.title is not UNSET:
-            self.updated = self.updated or (self.title != update.title)
-            self.title = update.title
-        if self.description is None and update.description is not UNSET:
-            self.updated = self.updated or (self.description != update.description)
-            self.description = update.description
-        if self.datetime_posted is None and update.datetime_posted is not UNSET:
-            self.updated = self.updated or (
-                self.datetime_posted != update.datetime_posted
-            )
-            self.datetime_posted = update.datetime_posted
-        if update.add_extra_data is not UNSET:
-            new_extra_data = merge_dicts(update.add_extra_data, self.extra_data)
-            self.updated = self.updated or (self.extra_data != new_extra_data)
-            self.extra_data = new_extra_data
-        # Update uploader
-        if update.uploader_update is not UNSET:
-            if self.uploader is None:
-                self.uploader_create = update.uploader_update
-            else:
-                self.uploader.add_update(update.uploader_update)
-        # Update keywords
-        if self.keywords is None and update.ordered_keywords is not UNSET:
-            self.keywords_update = SubmissionKeywordsListUpdate.from_ordered_keywords(update.ordered_keywords)
-        if self.keywords is None and update.unordered_keywords is not UNSET:
-            self.keywords_update = SubmissionKeywordsListUpdate.from_unordered_keywords(update.unordered_keywords)
-        # Update files
-        if update.files is not UNSET:
-            self.files.add_update(update.files)
-        # Update first scanned, if this update is older
-        if self.first_scanned > update.update_time:
-            self.updated = True
-            self.first_scanned = update.update_time
+    @property
+    def is_deleted(self) -> bool:
+        return self.sorted_snapshots[0].is_deleted
 
-    def save(self, db: "Database") -> None:
-        if self.updated:
-            db.update(
-                "UPDATE submissions "
-                "SET is_deleted = %s, first_scanned = %s, latest_update = %s, uploader_id = %s, title = %s, "
-                "description = %s, datetime_posted = %s, extra_data = %s "
-                "WHERE submission_id = %s",
-                (
-                    self.is_deleted,
-                    self.first_scanned,
-                    self.latest_update,
-                    self.uploader.user_id if self.uploader else None,
-                    self.title,
-                    self.description,
-                    self.datetime_posted,
-                    json_to_db(self.extra_data),
-                    self.submission_id,
-                ),
-            )
-        # Update uploader
-        if self.uploader is not None and self.uploader.updated:
-            self.uploader.save(db)
-        if self.uploader_create is not UNSET:
-            self.uploader = self.uploader_create.create_user(db)
-        # Update keywords
-        if self.keywords_update is not UNSET:
-            self.keywords = self.keywords_update.save(db, self.submission_id)
-        # Update files
-        if self.files.updated:
-            self.files.save(db)
-        if self.files_update is not UNSET:
-            self.files = self.files_update.create(db, self.submission_id)
+    @property
+    def first_scanned(self) -> datetime.datetime:
+        return self.sorted_snapshots[-1].scan_datetime
+
+    @property
+    def latest_update(self) -> datetime.datetime:
+        return self.sorted_snapshots[0].scan_datetime
+    
+    @property
+    def uploader_site_user_id(self) -> Optional[str]:
+        for snapshot in self.sorted_snapshots:
+            if snapshot.uploader_site_user_id is not None:
+                return snapshot.uploader_site_user_id
+        return None
+    
+    @property
+    def title(self) -> Optional[str]:
+        for snapshot in self.sorted_snapshots:
+            if snapshot.title is not None:
+                return snapshot.title
+        return None
+    
+    @property
+    def description(self) -> Optional[str]:
+        for snapshot in self.sorted_snapshots:
+            if snapshot.description is not None:
+                return snapshot.description
+        return None
+    
+    @property
+    def datetime_posted(self) -> Optional[datetime.datetime]:
+        for snapshot in self.sorted_snapshots:
+            if snapshot.datetime_posted is not None:
+                return snapshot.datetime_posted
+        return None
+
+    @property
+    def extra_data(self) -> Dict[str, Any]:
+        extra_data = {}
+        for snapshot in self.sorted_snapshots[::-1]:
+            if snapshot.extra_data is not None:
+                extra_data = merge_dicts(extra_data, snapshot.extra_data)
+        return extra_data
+    
+    @property
+    def keywords(self) -> List[SubmissionKeyword]:
+        for snapshot in self.sorted_snapshots:
+            if snapshot.keywords_recorded:
+                return sorted(
+                    snapshot.keywords,
+                    key=lambda keyword: (keyword.ordinal, keyword.keyword)
+                )
+        return []
+    
+    @property
+    def files(self) -> Dict[Optional[str], File]:
+        files = {}
+        for snapshot in self.sorted_snapshots[::-1]:
+            if snapshot.files is None:
+                continue
+            for file in snapshot.files:
+                current_file = files.get(file.site_file_id)
+                if current_file is None:
+                    files[file.site_file_id] = file
+                    continue
+                if current_file.is_clashing(file):
+                    files[file.site_file_id] = file
+                    continue
+                current_file.add_update(file)
+        return files
+
+    def to_web_json(self) -> Dict:
+        return {
+            "website_id": self.website_id,
+            "site_submission_id": self.site_submission_id,
+            "cache_data": {
+                "snapshot_count": len(self.snapshots),
+                "first_scanned": self.first_scanned,
+                "latest_update": self.latest_update,
+            },
+            "submission_data": {
+                "is_deleted": self.is_deleted,
+                "uploader_site_user_id": self.uploader_site_user_id,
+                "title": self.title,
+                "description": self.description,
+                "datetime_posted": self.datetime_posted.isoformat() if self.datetime_posted is not None else None,
+                "keywords": [keyword.to_web_json() for keyword in self.keywords],
+                "files": [file.to_web_json() for file in self.files.values()],
+                "extra_data": self.extra_data,
+            }
+        }
+
+    def to_web_snapshots_json(self) -> Dict:
+        return {
+            "website_id": self.website_id,
+            "site_submission_id": self.site_submission_id,
+            "snapshot_count": len(self.snapshots),
+            "snapshots": [snapshot.to_web_json() for snapshot in self.sorted_snapshots]
+        }
 
     @classmethod
     def from_database(
         cls, db: "Database", website_id: str, site_submission_id: str
     ) -> Optional["Submission"]:
-        sub_rows = db.select(
-            "SELECT submission_id, is_deleted, first_scanned, latest_update, uploader_id, title, description, "
-            "datetime_posted, extra_data "
-            "FROM submissions "
+        snapshot_rows = db.select(
+            "SELECT s.submission_snapshot_id, s.scan_datetime, s.archive_contributor_id, a.name as contributor_name, "
+            "s.ingest_datetime, s.uploader_site_user_id, s.is_deleted, s.title, s.description, s.datetime_posted, "
+            "s.extra_data "
+            "FROM submission_snapshots s "
+            "LEFT JOIN archive_contributors a ON s.archive_contributor_id = a.contributor_id "
             "WHERE website_id = %s AND site_submission_id = %s",
-            (website_id, site_submission_id),
+            (website_id, site_submission_id)
         )
-        if not sub_rows:
+        snapshots = []
+        contributors = {}
+        for row in snapshot_rows:
+            (
+                submission_snapshot_id, scan_datetime, contributor_id, contributor_name, ingest_datetime,
+                uploader_site_user_id, is_deleted, title, description, datetime_posted, extra_data
+            ) = row
+            contributor = contributors.get(contributor_id)
+            if contributor is None:
+                contributor = ArchiveContributor(contributor_name, contributor_id=contributor_id)
+                contributors[contributor_id] = contributor
+            # Load keywords
+            keywords = SubmissionKeyword.list_for_submission_snapshot(db, submission_snapshot_id)
+            # Load files
+            files = File.list_for_submission_snapshot(db, submission_snapshot_id)
+            snapshots.append(SubmissionSnapshot(
+                website_id,
+                site_submission_id,
+                contributor,
+                scan_datetime,
+                submission_snapshot_id=submission_snapshot_id,
+                ingest_datetime=ingest_datetime,
+                uploader_site_user_id=uploader_site_user_id,
+                is_deleted=is_deleted,
+                title=title,
+                description=description,
+                datetime_posted=datetime_posted,
+                extra_data=extra_data,
+                keywords=keywords,
+                files=files,
+            ))
+        if not snapshots:
             return None
-        (
-            sub_id,
-            is_deleted,
-            first_scanned,
-            latest_update,
-            uploader_id,
-            title,
-            description,
-            datetime_posted,
-            extra_data,
-        ) = sub_rows[0]
-        uploader = None
-        if uploader_id is not None:
-            uploader = User.from_database_by_user_id(db, uploader_id)
-        keywords = SubmissionKeywordsList.from_database(db, sub_id)
-        files = FileList.from_database(db, sub_id)
-        return cls(
-            sub_id,
+        return Submission(
             website_id,
             site_submission_id,
-            is_deleted,
-            first_scanned,
-            latest_update,
-            uploader,
-            title,
-            description,
-            datetime_posted,
-            extra_data,
-            keywords,
-            files
+            snapshots
         )
 
+    @classmethod
+    def list_unique_site_ids(cls, db: Database, website_id: str) -> Iterable[str]:
+        submission_rows = db.select_iter(
+            "SELECT DISTINCT site_submission_id FROM submission_snapshots WHERE website_id = %s",
+            (website_id,)
+        )
+        for submission_row in submission_rows:
+            yield submission_row[0]
 
-class SubmissionUpdate:
+
+class SubmissionSnapshot:
     def __init__(
         self,
         website_id: str,
         site_submission_id: str,
-        update_time: datetime.datetime = None,
-        is_deleted: bool = False,
+        contributor: ArchiveContributor,
+        scan_datetime: datetime.datetime,
         *,
-        uploader_update: UserUpdate = UNSET,
-        title: str = UNSET,
-        description: str = UNSET,
-        datetime_posted: datetime.datetime = UNSET,
-        add_extra_data: Dict[str, Any] = UNSET,
-        ordered_keywords: List[str] = UNSET,
-        unordered_keywords: List[str] = UNSET,
-        files: FileListUpdate = UNSET,
+        submission_snapshot_id: int = None,
+        ingest_datetime: datetime.datetime = None,
+        uploader_site_user_id: str = None,
+        is_deleted: bool = False,
+        title: str = None,
+        description: str = None,
+        datetime_posted: datetime.datetime = None,
+        extra_data: Dict[str, Any] = None,
+        keywords: List[SubmissionKeyword] = None,
+        ordered_keywords: List[str] = None,
+        unordered_keywords: List[str] = None,
+        files: List[File] = None,
     ):
         self.website_id = website_id
         self.site_submission_id = site_submission_id
-        self.update_time = update_time or datetime.datetime.now(datetime.timezone.utc)
+        self.contributor = contributor
+        self.scan_datetime = scan_datetime
+        self.submission_snapshot_id = submission_snapshot_id
+        self.ingest_datetime = ingest_datetime or datetime.datetime.now(datetime.timezone.utc)
+        self.uploader_site_user_id = uploader_site_user_id
         self.is_deleted = is_deleted
-        self.uploader_update = uploader_update
-        if self.uploader_update is not UNSET:
-            if self.uploader_update.website_id is None:
-                self.uploader_update.website_id = self.website_id
-            if not self.uploader_update.update_time_set:
-                self.uploader_update.update_time = self.update_time
         self.title = title
         self.description = description
         self.datetime_posted = datetime_posted
-        self.add_extra_data = add_extra_data
-        self.ordered_keywords = ordered_keywords
-        self.unordered_keywords = unordered_keywords
-        self.files = files
-        if self.files is not UNSET:
-            for file_update in self.files.file_updates:
-                if not file_update.update_time_set:
-                    file_update.update_time = self.update_time
+        self.extra_data = extra_data
+        self.keywords: Optional[List[SubmissionKeyword]] = keywords
+        if keywords is not None:
+            # Check keyword ordinals are unique
+            ordinals = set()
+            for keyword in keywords:
+                if keyword.ordinal is None:
+                    continue
+                if keyword.ordinal in ordinals:
+                    raise ValueError("Duplicate ordinal in keywords list")
+                ordinals.add(keyword.ordinal)
+        if ordered_keywords is not None:
+            self.keywords = SubmissionKeyword.list_from_ordered_keywords(ordered_keywords)
+        if unordered_keywords is not None:
+            self.keywords = SubmissionKeyword.list_from_unordered_keywords(unordered_keywords)
+        self.files: Optional[List[File]] = files
+    
+    @property
+    def keywords_recorded(self) -> bool:
+        return self.keywords is not None
+    
+    def to_web_json(self) -> Dict:
+        keywords = None
+        if self.keywords_recorded:
+            keywords = [keyword.to_web_json() for keyword in self.keywords]
+        return {
+            "submission_snapshot_id": self.submission_snapshot_id,
+            "website_id": self.website_id,
+            "site_submission_id": self.site_submission_id,
+            "cache_data": {
+                "scan_datetime": self.scan_datetime,
+                "archive_contributor": self.contributor.to_web_json(),
+                "ingest_datetime": self.ingest_datetime,
+            },
+            "submission_data": {
+                "uploader_site_user_id": self.uploader_site_user_id,
+                "is_deleted": self.is_deleted,
+                "title": self.title,
+                "description": self.description,
+                "datetime_posted": self.datetime_posted,
+                "keywords": keywords,
+                "files": [file.to_web_json() for file in self.files],
+                "extra_data": self.extra_data,
+            },
+        }
+    
+    @classmethod
+    def from_web_json(cls, web_data: Dict, contributor: ArchiveContributor) -> "SubmissionSnapshot":
+        keywords = None
+        if "keywords" in web_data:
+            keywords = [SubmissionKeyword.from_web_json(keyword_data) for keyword_data in web_data["keywords"]]
+        if "ordered_keywords" in web_data:
+            keywords = SubmissionKeyword.list_from_ordered_keywords(web_data["ordered_keywords"])
+        if "unordered_keywords" in web_data:
+            keywords = SubmissionKeyword.list_from_unordered_keywords(web_data["unordered_keywords"])
+        files = None
+        if "files" in web_data:
+            files = [File.from_web_json(file_data) for file_data in web_data["files"]]
+        return SubmissionSnapshot(
+            web_data["website_id"],
+            web_data["site_submission_id"],
+            contributor,
+            parse_datetime(web_data.get("scan_datetime")),
+            uploader_site_user_id=web_data.get("uploader_site_user_id"),
+            is_deleted=web_data.get("is_deleted", False),
+            title=web_data.get("title"),
+            description=web_data.get("description"),
+            datetime_posted=parse_datetime(web_data.get("datetime_posted")),
+            extra_data=web_data.get("extra_data"),
+            keywords=keywords,
+            files=files,
+        )
 
-    def create_submission(self, db: "Database") -> Submission:
-        # Handle things which may be unset
-        uploader = None
-        uploader_id = None
-        if self.uploader_update is not UNSET:
-            uploader = self.uploader_update.save(db)
-            uploader_id = uploader.user_id
-        title = unset_to_null(self.title)
-        description = unset_to_null(self.description)
-        datetime_posted = unset_to_null(self.datetime_posted)
-        extra_data = unset_to_null(self.add_extra_data)
-        submission_rows = db.insert(
-            "INSERT INTO submissions "
-            "(website_id, site_submission_id, is_deleted, first_scanned, latest_update, uploader_id, title, "
-            "description, datetime_posted, extra_data) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING submission_id",
+    def create_snapshot(self, db: "Database") -> None:
+        snapshot_rows = db.insert(
+            "INSERT INTO submission_snapshots "
+            "(website_id, site_submission_id, scan_datetime, archive_contributor_id, ingest_datetime, "
+            "uploader_site_user_id, is_deleted, title, description, datetime_posted, keywords_recorded, extra_data) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            "RETURNING submission_snapshot_id ",
             (
-                self.website_id,
-                self.site_submission_id,
-                self.is_deleted,
-                self.update_time,
-                self.update_time,
-                uploader_id,
-                title,
-                description,
-                datetime_posted,
-                json_to_db(extra_data),
-            ),
+                self.website_id, self.site_submission_id, self.scan_datetime, self.contributor.contributor_id,
+                self.ingest_datetime, self.uploader_site_user_id, self.is_deleted, self.title, self.description,
+                self.datetime_posted, self.keywords_recorded, json_to_db(self.extra_data),
+            )
         )
-        submission_id = submission_rows[0][0]
+        self.submission_snapshot_id = snapshot_rows[0][0]
         # Save keywords
-        submission_keywords = SubmissionKeywordsList(submission_id, [])
-        if self.ordered_keywords is not UNSET:
-            keywords_update = SubmissionKeywordsListUpdate.from_ordered_keywords(self.ordered_keywords)
-            submission_keywords = keywords_update.save(db, submission_id)
-        if self.unordered_keywords is not UNSET:
-            keywords_update = SubmissionKeywordsListUpdate.from_unordered_keywords(self.unordered_keywords)
-            submission_keywords = keywords_update.save(db, submission_id)
+        if self.keywords is not None:
+            SubmissionKeyword.save_batch(db, self.keywords, self.submission_snapshot_id)
         # Save files
-        files = FileList(submission_id, [])
-        if self.files is not UNSET:
-            files = self.files.create(db, submission_id)
-        return Submission(
-            submission_id,
-            self.website_id,
-            self.site_submission_id,
-            self.is_deleted,
-            self.update_time,
-            self.update_time,
-            uploader,
-            title,
-            description,
-            datetime_posted,
-            extra_data,
-            submission_keywords,
-            files
-        )
+        if self.files is not None:
+            File.save_batch(db, self.files, self.submission_snapshot_id)
 
-    def save(self, db: "Database") -> Submission:
-        submission = Submission.from_database(
-            db, self.website_id, self.site_submission_id
+    def save(self, db: "Database") -> None:
+        if self.submission_snapshot_id is None:
+            self.create_snapshot(db)
+
+    @classmethod
+    def save_batch(cls, db: Database, snapshots: List["SubmissionSnapshot"]) -> None:
+        unsaved = [snapshot for snapshot in snapshots if snapshot.submission_snapshot_id is None]
+        snapshot_ids = db.bulk_insert(
+            "submission_snapshots",
+            (
+                "website_id", "site_submission_id", "scan_datetime", "archive_contributor_id", "ingest_datetime",
+                "uploader_site_user_id", "is_deleted", "title", "description", "datetime_posted", "keywords_recorded",
+                "extra_data"
+            ),
+            [
+                (
+                    snapshot.website_id, snapshot.site_submission_id, snapshot.scan_datetime,
+                    snapshot.contributor.contributor_id, snapshot.ingest_datetime, snapshot.uploader_site_user_id,
+                    snapshot.is_deleted, snapshot.title, snapshot.description, snapshot.datetime_posted,
+                    snapshot.keywords_recorded, json_to_db(snapshot.extra_data))
+                for snapshot in unsaved
+            ],
+            "submission_snapshot_id"
         )
-        if submission is not None:
-            submission.add_update(self)
-            submission.save(db)
-            return submission
-        try:
-            return self.create_submission(db)
-        except errors.lookup(UNIQUE_VIOLATION):
-            submission = Submission.from_database(db, self.website_id, self.site_submission_id)
-            if submission is None:
-                raise ValueError("Submission existed, and then disappeared")
-            submission.add_update(self)
-            submission.save(db)
-            return submission
-        except Exception as e:
-            print(f"Failed to create submission: {self.site_submission_id}")
-            raise e
+        for snapshot, snapshot_id in zip(unsaved, snapshot_ids):
+            snapshot.submission_snapshot_id = snapshot_id
+            if snapshot.keywords is not None:
+                for keyword in snapshot.keywords:
+                    keyword.submission_snapshot_id = snapshot_id
+            if snapshot.files is not None:
+                for file in snapshot.files:
+                    file.submission_snapshot_id = snapshot_id
+        # Save keywords
+        keywords = sum([snapshot.keywords for snapshot in snapshots if snapshot.keywords is not None], start=[])
+        SubmissionKeyword.save_batch(db, keywords, None)
+        # Save files
+        files = sum([snapshot.files for snapshot in snapshots if snapshot.files is not None], start=[])
+        File.save_batch(db, files, None)
+
+    @classmethod
+    def list_all(cls, db: Database, website_id: str) -> Iterable["SubmissionSnapshot"]:
+        contributors = {contributor.contributor_id: contributor for contributor in ArchiveContributor.list_all(db)}
+        snapshot_rows = db.select_iter(
+            "SELECT submission_snapshot_id, website_id, site_submission_id, scan_datetime, archive_contributor_id, "
+            "ingest_datetime, uploader_site_user_id, is_deleted, title, description, datetime_posted, "
+            "keywords_recorded, extra_data "
+            "FROM submission_snapshots WHERE website_id = %s",
+            (website_id,)
+        )
+        for snapshot_row in snapshot_rows:
+            snapshot_id, website_id, site_submission_id, scan_datetime, archive_contributor_id, ingest_datetime, uploader_site_user_id, is_deleted, title, description, datetime_posted, keywords_recorded, extra_data = snapshot_row
+            contributor = contributors[archive_contributor_id]
+            keywords = SubmissionKeyword.list_for_submission_snapshot(db, snapshot_id)
+            files = File.list_for_submission_snapshot(db, snapshot_id)
+            yield cls(
+                website_id,
+                site_submission_id,
+                contributor,
+                scan_datetime,
+                submission_snapshot_id=site_submission_id,
+                ingest_datetime=ingest_datetime,
+                uploader_site_user_id=uploader_site_user_id,
+                is_deleted=is_deleted,
+                title=title,
+                description=description,
+                datetime_posted=datetime_posted,
+                extra_data=extra_data,
+                keywords=keywords,
+                files=files,
+            )
