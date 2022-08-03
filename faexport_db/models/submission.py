@@ -147,6 +147,10 @@ class Submission:
         )
         snapshots = []
         contributors = {}
+        snapshot_rows = list(snapshot_rows)
+        snapshot_ids = [row[0] for row in snapshot_rows]
+        all_keywords = SubmissionKeyword.list_for_submission_snapshots_batch(db, snapshot_ids)
+        all_files = File.list_for_submission_snapshots_batch(db, snapshot_ids)
         for row in snapshot_rows:
             (
                 submission_snapshot_id, scan_datetime, contributor_id, contributor_name, ingest_datetime,
@@ -157,9 +161,9 @@ class Submission:
                 contributor = ArchiveContributor(contributor_name, contributor_id=contributor_id)
                 contributors[contributor_id] = contributor
             # Load keywords
-            keywords = SubmissionKeyword.list_for_submission_snapshot(db, submission_snapshot_id)
+            keywords = [keyword for keyword in all_keywords if keyword.submission_snapshot_id == submission_snapshot_id]
             # Load files
-            files = File.list_for_submission_snapshot(db, submission_snapshot_id)
+            files = [file for file in all_files if file.submission_snapshot_id == submission_snapshot_id]
             snapshots.append(SubmissionSnapshot(
                 website_id,
                 site_submission_id,

@@ -115,6 +115,32 @@ class File:
         FileHash.save_batch(db, file_hashes, None)
 
     @classmethod
+    def list_for_submission_snapshots_batch(cls, db: Database, submission_snapshot_ids: List[int]) -> List["File"]:
+        file_rows = db.select(
+            "SELECT file_id, submission_snapshot_id, site_file_id, file_url, file_size, extra_data "
+            "FROM submission_snapshot_files "
+            "WHERE submission_snapshot_id IN %s",
+            (tuple(submission_snapshot_ids),)
+        )
+        files = []
+        file_rows = list(file_rows)
+        file_ids = [row[0] for row in file_rows]
+        all_hashes = FileHash.list_for_files_batch(db, file_ids)
+        for file_row in file_rows:
+            file_id, submission_snapshot_id, site_file_id, file_url, file_size, extra_data = file_row
+            hashes = [file_hash for file_hash in all_hashes if file_hash.file_id == file_id]
+            files.append(cls(
+                site_file_id,
+                file_id=file_id,
+                submission_snapshot_id=submission_snapshot_id,
+                file_url=file_url,
+                file_size=file_size,
+                extra_data=extra_data,
+                hashes=hashes,
+            ))
+        return files
+
+    @classmethod
     def list_for_submission_snapshot(cls, db: Database, submission_snapshot_id: int) -> List["File"]:
         file_rows = db.select(
             "SELECT file_id, site_file_id, file_url, file_size, extra_data "
@@ -193,6 +219,25 @@ class FileHash:
             file_hash.hash_id = hash_id
             if file_hash.file_id is None:
                 file_hash.file_id = file_id
+
+    @classmethod
+    def list_for_files_batch(cls, db: Database, file_ids: List[int]) -> List["FileHash"]:
+        hash_rows = db.select(
+            "SELECT hash_id, file_id, algo_id, hash_value "
+            "FROM submission_snapshot_file_hashes "
+            "WHERE file_id IN %s",
+            (tuple(file_ids),)
+        )
+        hashes = []
+        for hash_row in hash_rows:
+            hash_id, file_id, algo_id, hash_value = hash_row
+            hashes.append(cls(
+                algo_id,
+                hash_value,
+                file_id=file_id,
+                hash_id=hash_id,
+            ))
+        return hashes
 
     @classmethod
     def list_for_file(cls, db: Database, file_id: int) -> List["FileHash"]:
