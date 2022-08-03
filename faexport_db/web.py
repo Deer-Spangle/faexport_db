@@ -10,8 +10,8 @@ from faexport_db.ingest_formats.base import SimpleUserSnapshot, SimpleSubmission
 from faexport_db.ingest_formats.faexport import FAExportUser, FAExportSubmission
 from faexport_db.models.archive_contributor import ArchiveContributor
 from faexport_db.models.file import HashAlgo
-from faexport_db.models.submission import Submission
-from faexport_db.models.user import User
+from faexport_db.models.submission import Submission, SubmissionSnapshot
+from faexport_db.models.user import User, UserSnapshot
 from faexport_db.models.website import Website
 from flask import Flask, request
 
@@ -98,7 +98,7 @@ def list_submissions(website_id: str):
     website = Website.from_database(db, website_id)
     if not website:
         return error_resp(404, f"Website does not exist by ID: {website_id}")
-    submission_ids = list(Submission.list_unique_site_ids(db, website))
+    submission_ids = list(Submission.list_unique_site_ids(db, website.website_id))
     # TODO: paginate
     return {
         "data": {
@@ -106,7 +106,6 @@ def list_submissions(website_id: str):
             "submission_ids": submission_ids
         }
     }
-
 
 
 @app.route("/api/view/users/<website_id>/<user_id>.json")
@@ -165,8 +164,8 @@ def ingest_data(formatter: BaseFormat):
     if not web_data:
         return error_resp(400, "Submission snapshot data must be posted as json")
     format_resp = formatter.format_web_data(web_data, contributor)
-    Submission.save_batch(format_resp.submission_snapshots)
-    User.save_batch(format_resp.user_snapshots)
+    SubmissionSnapshot.save_batch(db, format_resp.submission_snapshots)
+    UserSnapshot.save_batch(db, format_resp.user_snapshots)
 
 
 @app.route("/api/websites.json")
