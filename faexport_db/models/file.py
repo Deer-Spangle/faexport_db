@@ -283,3 +283,18 @@ class HashAlgo:
                 algo_id=algo_id,
             ))
         return hash_algos
+
+    @classmethod
+    def from_database(cls, db: Database, algo_id: int) -> Optional["HashAlgo"]:
+        algo_rows = db.select(
+            "SELECT language, algorithm_name FROM hash_algos WHERE algo_id = %s",
+            (algo_id,)
+        )
+        if not algo_rows:
+            return None
+        language, name = algo_rows[0]
+        return cls(
+            language,
+            name,
+            algo_id=algo_id,
+        )
