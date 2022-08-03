@@ -228,11 +228,21 @@ class HashAlgo:
         self.algo_id = algo_id
         # TODO: Add some hash validation methods? Like, checking hash length. Especially important for web data
 
-    def to_web_json(self) -> Dict:
+    def count_file_hashes(self, db: Database) -> int:
+        count_rows = db.select(
+            "SELECT COUNT(*) FROM submission_snapshot_file_hashes WHERE algo_id = %s",
+            (self.algo_id,)
+        )
+        if count_rows:
+            return count_rows[0][0]
+        return 0
+
+    def to_web_json(self, db: Database) -> Dict:
         return {
             "algo_id": self.algo_id,
             "language": self.language,
             "algorithm_name": self.algorithm_name,
+            "num_file_hashes": self.count_file_hashes(db),
         }
     
     def _create(self, db: Database) -> None:

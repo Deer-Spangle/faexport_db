@@ -184,7 +184,7 @@ def list_hash_algos() -> Dict:
     hash_algos = HashAlgo.list_all(db)
     return {
         "data": {
-            "hash_algos": [hash_algo.to_web_json() for hash_algo in hash_algos]
+            "hash_algos": [hash_algo.to_web_json(db) for hash_algo in hash_algos]
         }
     }
 

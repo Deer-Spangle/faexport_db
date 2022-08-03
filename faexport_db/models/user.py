@@ -157,7 +157,7 @@ class UserSnapshot:
                 "extra_data": self.extra_data,
             },
         }
-    
+
     @classmethod
     def from_web_json(cls, web_data: Dict, contributor: ArchiveContributor) -> "UserSnapshot":
         return cls(
