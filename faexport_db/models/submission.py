@@ -9,7 +9,7 @@ from faexport_db.db import (
     parse_datetime,
 )
 from faexport_db.models.archive_contributor import ArchiveContributor
-from faexport_db.models.file import File
+from faexport_db.models.file import File, HashAlgo
 from faexport_db.models.keyword import SubmissionKeyword
 
 
@@ -394,3 +394,53 @@ class SubmissionSnapshot:
                 keywords=keywords,
                 files=files,
             )
+
+    @classmethod
+    def search_by_file_hash(cls, db: Database, hash_algo: HashAlgo, hash_value: bytes) -> List[SubmissionSnapshot]:
+        snapshot_rows = db.select(
+            "SELECT s.submission_snapshot_id, s.website_id, s.site_submission_id, s.scan_datetime, "
+            "s.archive_contributor_id, a.name as contributor_name, s.ingest_datetime, s.uploader_site_user_id, "
+            "s.is_deleted, s.title, s.description, s.datetime_posted, s.extra_data "
+            "FROM submission_snapshot_file_hashes hashes "
+            "LEFT JOIN submission_snapshot_files files on files.file_id = hashes.file_id "
+            "LEFT JOIN submission_snapshots s ON files.submission_snapshot_id = s.submission_snapshot_id "
+            "LEFT JOIN archive_contributors a ON s.archive_contributor_id = a.contributor_id "
+            "WHERE algo_id = %s AND hash_value = %s",
+            (hash_algo.algo_id, hash_value)
+        )
+        contributors = {}
+        snapshots = []
+        snapshot_rows = list(snapshot_rows)
+        snapshot_ids = [row[0] for row in snapshot_rows]
+        all_keywords = SubmissionKeyword.list_for_submission_snapshots_batch(db, snapshot_ids)
+        all_files = File.list_for_submission_snapshots_batch(db, snapshot_ids)
+        for snapshot_row in snapshot_rows:
+            (
+                submission_snapshot_id, website_id, site_submission_id, scan_datetime, contributor_id, contributor_name,
+                ingest_datetime, uploader_site_user_id, is_deleted, title, description, datetime_posted, extra_data
+            ) = snapshot_row
+            contributor = contributors.get(contributor_id)
+            if contributor is None:
+                contributor = ArchiveContributor(contributor_name, contributor_id=contributor_id)
+                contributors[contributor_id] = contributor
+            # Load keywords
+            keywords = [keyword for keyword in all_keywords if keyword.submission_snapshot_id == submission_snapshot_id]
+            # Load files
+            files = [file for file in all_files if file.submission_snapshot_id == submission_snapshot_id]
+            snapshots.append(SubmissionSnapshot(
+                website_id,
+                site_submission_id,
+                contributor,
+                scan_datetime,
+                submission_snapshot_id=submission_snapshot_id,
+                ingest_datetime=ingest_datetime,
+                uploader_site_user_id=uploader_site_user_id,
+                is_deleted=is_deleted,
+                title=title,
+                description=description,
+                datetime_posted=datetime_posted,
+                extra_data=extra_data,
+                keywords=keywords,
+                files=files,
+            ))
+        return snapshots
