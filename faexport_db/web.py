@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 from typing import Dict, Tuple, Type
@@ -195,4 +196,21 @@ def list_archive_contributors() -> Dict:
         "data": {
             "archive_contributors": [contributor.to_web_json(db) for contributor in contributors]
         }
+    }
+
+
+@app.route("/api/hash_search/", methods=["POST"])
+def search_hash():
+    search_data = request.json
+    if not search_data:
+        return error_resp(400, "Hash search request must be posted as json")
+    hash_value = search_data["hash_value"]
+    hash_bytes = base64.b64decode(hash_value)
+    algo_id = search_data["algo_id"]
+    hash_algo = HashAlgo.from_database(db, algo_id)
+    if not hash_algo:
+        return error_resp(400, "Hash algo not found by ID")
+    snapshots = SubmissionSnapshot.search_by_file_hash(db, hash_algo, hash_bytes)
+    return {
+        "results": [snapshot.to_web_json() for snapshot in snapshots]
     }
