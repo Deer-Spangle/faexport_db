@@ -16,3 +16,10 @@ CREATE INDEX submission_keyword_submission_id_index ON submission_snapshot_keywo
 CREATE INDEX submission_file_hash_file_id_index ON submission_snapshot_file_hashes (file_id);
 
 ANALYZE;
+
+-- Hash search indexes
+CREATE INDEX submission_snapshot_file_hash_value_index ON submission_snapshot_file_hashes (algo_id, hash_value);
+CREATE INDEX submission_snapshot_file_hash_algo_index ON submission_snapshot_file_hashes (algo_id);
+CREATE INDEX submission_snapshots_snapshot_id_index ON submission_snapshots (submission_snapshot_id);
+CREATE INDEX submission_snapshot_files_file_id_index ON submission_snapshot_files (file_id);
+ANALYZE;
