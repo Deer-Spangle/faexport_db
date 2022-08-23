@@ -95,6 +95,8 @@ class SubmissionKeyword:
             "WHERE submission_snapshot_id IN %s",
             (tuple(submission_snapshot_ids),)
         )
+        if not submission_snapshot_ids:
+            return []
         keywords = []
         for keyword_row in keyword_rows:
             keyword_id, submission_snapshot_id, keyword, ordinal = keyword_row
