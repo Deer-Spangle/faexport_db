@@ -148,6 +148,8 @@ class Submission:
         snapshots = []
         contributors = {}
         snapshot_rows = list(snapshot_rows)
+        if not snapshot_rows:
+            return None
         snapshot_ids = [row[0] for row in snapshot_rows]
         all_keywords = SubmissionKeyword.list_for_submission_snapshots_batch(db, snapshot_ids)
         all_files = File.list_for_submission_snapshots_batch(db, snapshot_ids)
