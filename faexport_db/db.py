@@ -57,24 +57,36 @@ class Database:
 
     def select(self, query: str, args: Tuple) -> List[Any]:
         with self.conn.cursor() as cur:
-            cur.execute(query, args)
-            result = cur.fetchall()
+            try:
+                cur.execute(query, args)
+                result = cur.fetchall()
+            except psycopg2.Error as e:
+                self.conn.rollback()
+                raise e
         if self.analyze:
             with self.conn.cursor() as cur:
-                cur.execute("explain analyze "+query, args)
-                analyze_result = cur.fetchall()
-                print(analyze_result)
+                try:
+                    cur.execute("explain analyze "+query, args)
+                    analyze_result = cur.fetchall()
+                    print(analyze_result)
+                except psycopg2.Error as e:
+                    self.conn.rollback()
+                    raise e
         return result
 
     def select_iter(self, query: str, args: Tuple) -> Iterable[Any]:
         with self.conn.cursor("select_iter") as cur:
-            cur.execute(query, args)
-            while True:
-                rows = cur.fetchmany(5000)
-                if not rows:
-                    break
-                for row in rows:
-                    yield row
+            try:
+                cur.execute(query, args)
+                while True:
+                    rows = cur.fetchmany(5000)
+                    if not rows:
+                        break
+                    for row in rows:
+                        yield row
+            except psycopg2.Error as e:
+                self.conn.rollback()
+                raise e
 
     def insert(self, query: str, args: Tuple) -> List[Any]:
         with self.conn.cursor() as cur:
