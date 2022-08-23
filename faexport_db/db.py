@@ -53,11 +53,17 @@ class CustomJSONEncoder(JSONEncoder):
 class Database:
     def __init__(self, conn):
         self.conn = conn
+        self.analyze = False
 
     def select(self, query: str, args: Tuple) -> List[Any]:
         with self.conn.cursor() as cur:
             cur.execute(query, args)
             result = cur.fetchall()
+        if self.analyze:
+            with self.conn.cursor() as cur:
+                cur.execute("explain analyze "+query, args)
+                analyze_result = cur.fetchall()
+                print(analyze_result)
         return result
 
     def select_iter(self, query: str, args: Tuple) -> Iterable[Any]:
